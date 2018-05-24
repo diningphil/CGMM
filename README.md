@@ -1,4 +1,4 @@
-# CGMM-ICML2018
+# CGMM
 Contextual Graph Markov Model
 
 ## Summary
