@@ -41,31 +41,49 @@ class MultinomialMixture:
 
         while current_epoch <= max_epochs and delta > threshold:
 
-            # E-step
-            # TODO mini-batch
-            numerator = np.multiply(self.emission[target, :], np.reshape(self.prior, (1, self.C)))  # len(dataset)xC
-            denominator = np.dot(self.emission[target, :], np.reshape(self.prior, (self.C, 1)))  # Ux1
-            posterior_estimate = np.divide(numerator, denominator)
-            # todo does numpy ensure correct broadcasting when len(dataset) == C?
+            datasetSize = len(target)
+            batch_size = 2000
+            no_batches = np.floor(datasetSize/batch_size).astype('int')
+            no_batches = no_batches+1 if datasetSize%batch_size != 0 else no_batches
 
-            # Compute the expected complete log likelihood
-            likelihood = np.sum(np.multiply(posterior_estimate, np.log(np.multiply(self.emission[target, :], np.reshape(self.prior, (1, self.C))))))
-            likelihood_list.append(likelihood)
-            print("Mixture model training: epoch ", current_epoch, ",  E[likelihood_c] = ", likelihood)
+            likelihood = 0.
+
+            num_prior = np.full(self.C, self.smoothing)
+            den_prior = np.full(self.C, self.smoothing*self.C)
+
+            num_emission = np.full((self.K, self.C), self.smoothing)
+            den_emission = np.full((self.K, self.C), self.smoothing*self.K)
+
+            for batch in range(0, no_batches):
+
+                start = batch_size * batch
+                end = start + batch_size if batch < no_batches - 1 else datasetSize
+                curr_batch_sz = end - start
+
+                # E-step
+                numerator = np.multiply(self.emission[target[start:end], :], np.reshape(self.prior, (1, self.C)))  # len(dataset)xC
+                denominator = np.dot(self.emission[target[start:end], :], np.reshape(self.prior, (self.C, 1)))  # Ux1
+                posterior_estimate = np.divide(numerator, denominator)
+                # todo does numpy ensure correct broadcasting when len(dataset) == C?
+
+                # Compute the expected complete log likelihood
+                likelihood += np.sum(np.multiply(posterior_estimate, np.log(np.multiply(self.emission[target[start:end], :], np.reshape(self.prior, (1, self.C))))))
+
+                # M-step
+                num_prior += np.sum(posterior_estimate, axis=0)
+                den_prior += np.sum(posterior_estimate)
+
+                np.add.at(num_emission, target[start:end], posterior_estimate)  # KxC
+                den_emission += np.sum(posterior_estimate, axis=0)  # 1xC broadcasted to KxC
+
+            self.prior = np.divide(num_prior, den_prior)
+            self.emission = np.divide(num_emission, den_emission)
 
             delta = likelihood - old_likelihood
             old_likelihood = likelihood
 
-            # M-step
-            numerator = self.smoothing + np.sum(posterior_estimate, axis=0)
-            denominator = self.smoothing * self.C + np.sum(posterior_estimate)
-            self.prior = np.divide(numerator, denominator)
-
-            numerator = self.smoothing + np.zeros((self.K, self.C))
-            np.add.at(numerator, target, posterior_estimate)  # KxC
-            denominator = self.smoothing * self.K + np.sum(posterior_estimate, axis=0)  # 1xC
-            self.emission = np.divide(numerator, np.reshape(denominator, (1, self.C)))
-
+            likelihood_list.append(likelihood)
+            print("Mixture model training: epoch ", current_epoch, ",  E[likelihood_c] = ", likelihood)
             current_epoch += 1
 
         return likelihood_list

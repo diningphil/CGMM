@@ -138,8 +138,8 @@ class VStructure:
 
             datasetSize = len(target)
             batch_size = 2000
-            no_batches = np.floor(datasetSize/2000).astype('int')
-            no_batches = no_batches+1 if datasetSize%2000 != 0 else no_batches
+            no_batches = np.floor(datasetSize/batch_size).astype('int')
+            no_batches = no_batches+1 if datasetSize%batch_size != 0 else no_batches
 
             likelihood = 0.
             num_emission = np.full((self.K, self.C), self.smoothing)
