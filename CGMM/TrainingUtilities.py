@@ -175,6 +175,10 @@ def incremental_training(C, K, A, Lprec, adjacency_lists, X, layers, threshold=0
             model.train(X, threshold, max_epochs, adjacency_lists, last_states, prev_statistics, layer=(i + 1))
             last_states, last_statistics = model.inference(X, adjacency_lists, last_states, prev_statistics)
 
+
+        # TODO to limit memory usage you should consider reading from disk the statistics relative to the minibatch only
+        # I still do not know how to do this, but it is the way.
+
         # Append statistics of the new layer after having computed them
         if prev_statistics is None:
             prev_statistics = last_statistics
