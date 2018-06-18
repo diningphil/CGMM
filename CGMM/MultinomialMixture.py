@@ -1,6 +1,5 @@
 import numpy as np
 
-
 class MultinomialMixture:
     def __init__(self, c, k):
         """
