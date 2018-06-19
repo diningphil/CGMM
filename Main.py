@@ -3,45 +3,64 @@ import numpy as np
 import tensorflow as tf
 from CGMMTF.MultinomialMixtureTF import MultinomialMixture
 from CGMMTF.VStructureTF import VStructure
+from CGMMTF.utils import *
 
-batch_size = 200
+import pickle
+from CGMMTF.DatasetUtilities import unravel
 
-A = 3
-L = 1
-C = 20
-C2 = 20
-K = 2
+task_name = 'CPDB'
 
-# TODO what changes now is the way we build the statistics! we can put them in a batch dataset, computing them when they are needed
-# and reusing what has been already computed
+with open('Graph_Tasks/' + task_name + '_data/' + task_name + '_dataset', 'rb') as f:
+    [graphs, A, K] = pickle.load(f)
 
+X, Y, adjacency_lists, sizes = unravel(graphs, one_target_per_graph=True)
+
+
+L = 1  # TODO it has to be 1 now, when we will load statistics from multiple files L may be set arbitrarily
+C = 40
+C2 = 40
+
+batch_size = 2000
+layers = 2
+
+
+# Comparing with the old implementation
+from CGMM.TrainingUtilities import incremental_training
+incremental_training(C,K,A,np.array([1]), adjacency_lists, X, layers, max_epochs=10)
+
+# TODO
+# TODO  ERROR! THE LIKELIHOOD IS DIFFERENT! WHY?
+# TODO
 with tf.Session() as sess:
-    # Create a toy dataset
-    target_example = np.random.randint(size=(3000, 1), low=0, high=K)
 
     # build minibatches from dataset
-    dataset = tf.data.Dataset.from_tensor_slices(target_example)
+    dataset = tf.data.Dataset.from_tensor_slices(np.reshape(X, (X.shape[0], 1)))
     batch_dataset = dataset.batch(batch_size=batch_size)
 
+    print("LAYER 0")
     with tf.variable_scope("base_layer"):
         mm = MultinomialMixture(C, K)
+        mm.train(batch_dataset, sess)
 
-    print("TRAINING LAYER 0")
-    mm.train(batch_dataset, sess)
+    inferred_states = mm.perform_inference(batch_dataset, sess)
 
-    print("INFERENCE LAYER 0")
-    inferred_states = mm.perform_inference(target_example, sess)
-    statistics_example = np.random.randint(size=(3000, L, A, C2+1), low=0, high=5)
+    for layer in range(0, layers):
+        print("LAYER", layer)
 
-    # build minibatches from statistics
-    statistics = tf.data.Dataset.from_tensor_slices(statistics_example)
-    batch_statistics = statistics.batch(batch_size=batch_size)
+        save_statistics(adjacency_lists, inferred_states, X, A, C2, 'statistiche', layer)
 
-    with tf.variable_scope("general_layer"):
-        vs = VStructure(C, C2, K, L, A)
+        stats_dataset = recover_statistics('statistiche', layer, A, C2)
+        batch_statistics = stats_dataset.batch(batch_size=batch_size)
 
-    print("TRAINING LAYER 1")
-    vs.train(batch_dataset, batch_statistics, sess)
+        stats_iterator = batch_statistics.make_initializable_iterator()
+        stats_next_element = stats_iterator.get_next()
 
-    print("INFERENCE LAYER 1")
-    vs.perform_inference(batch_dataset, batch_statistics, sess)
+        sess.run(stats_iterator.initializer)
+
+        with tf.variable_scope("general_layer"):
+            vs = VStructure(C, C2, K, L, A)
+
+            vs.train(batch_dataset, batch_statistics, sess)
+            inferred_states = vs.perform_inference(batch_dataset, batch_statistics, sess)
+
+            

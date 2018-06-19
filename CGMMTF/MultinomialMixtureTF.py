@@ -147,17 +147,13 @@ class MultinomialMixture:
 
             print("End of epoch", current_epoch, "likelihood:", likelihood)
 
-    def perform_inference(self, target, sess, batch_size=2000):
+    def perform_inference(self, batch_dataset, sess):
         """
         Takes a set and returns the most likely hidden state assignment for each node
         :param target: the target labels in a single array
-        :param batch_size: the size of the minibatch
         :returns: most likely hidden state labels for each vertex
         """
 
-        # build minibatches from dataset
-        dataset = tf.data.Dataset.from_tensor_slices(target)
-        batch_dataset = dataset.batch(batch_size=batch_size)
         iterator = batch_dataset.make_initializable_iterator()
         next_element = iterator.get_next()
 

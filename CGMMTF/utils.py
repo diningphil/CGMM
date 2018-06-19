@@ -1,54 +1,77 @@
-# TODO move this function OUT!
-def compute_statistics(self, adjacency_lists, last_states, prev_statistics=None):
+from __future__ import absolute_import, division, print_function
+import numpy as np
+import tensorflow as tf
+
+
+def save_statistics(adjacency_lists, inferred_states, target, A, C2, filename, layer_no):
     """
     :param last_states: the last array of states
     :param prev_statistics: the statistics needed: list of numpy matrices UxAxC2
     :return: the statistics needed for this model, according to the Lprec parameter
     """
 
-    # Compute statistics
-    new_statistics = np.zeros((len(adjacency_lists), self.A, self.C2))
+    C2 += 1  # always need to consider the bottom state
+
+    # open the TFRecords file
+    writer = tf.python_io.TFRecordWriter(filename + '_' + str(layer_no))
 
     for u in range(0, len(adjacency_lists)):
+        # Compute statistics
+        statistics = np.zeros((A, C2))
+
         incident_nodes = adjacency_lists[u]
         for u2, a in incident_nodes:
-            node_state = last_states[u2]
+            node_state = inferred_states[u2]
+            statistics[a, node_state] += 1
 
-            # THIS CHECK IS USEFUL FOR COLLECTIVE INFERENCE
-            if node_state != -1:
-                new_statistics[u, a, node_state] += 1
+        # Create a new Example
+        label = target[u]
+        # Create a feature
+        feature = {'train/label': tf.train.Feature(int64_list=tf.train.Int64List(value=[label])),
+                   'train/stats': tf.train.Feature(bytes_list=tf.train.BytesList(value=[statistics.tostring()]))}
 
-    # Save it into a field for future use (incremental inference/training) --> strongly coupled
-    last_statistics = np.reshape(new_statistics, (len(adjacency_lists), 1, self.A, self.C2))
+        # Create an example protocol buffer
+        example = tf.train.Example(features=tf.train.Features(feature=feature))
 
-    # take just the stats I am interested in
-    if prev_statistics is not None:
+        # Append to file (can you do it?)
+        # Serialize to string and write on the file
+        writer.write(example.SerializeToString())
 
-        # Todo this is responsible for the increase in computation time while
-        all_statistics = np.concatenate([np.reshape(last_statistics, (len(adjacency_lists), 1, self.A, self.C2)),
-                                         prev_statistics], axis=1)  # UxLxAxC2
+    writer.close()
 
-        bound = -1
 
-        if all_statistics.shape[1] >= self.Lprec[bound]:  # I can take all the desired precedent layers
-            all_statistics = all_statistics[:, self.Lprec - 1, :, :]
+def recover_statistics(filename, layer, A, C2):
+    '''
+    This function creates the dataset by reading from different files according to "layers".
+    :param filename:
+    :param layers:
+    :return: A tf.data.Dataset, where each element has shape [L, A, C2]. The first dimension is obtained by merging
+    the L required files specified by the "layers" argument
+    '''
 
-        else:  # take the max previous number of states
+    C2 += 1  # always need to consider the bottom state
 
-            while all_statistics.shape[1] < self.Lprec[bound]:  # Lprec[bound] is still too much
-                bound -= 1
+    def parse_example(example):
 
-            all_statistics = all_statistics[:, self.Lprec[:bound + 1] - 1, :, :]
+        feature = {'train/label': tf.FixedLenFeature([], tf.int64),
+                   'train/stats': tf.FixedLenFeature([], tf.string)}
 
-            # L has to adapt to the number of preceeding layers
-            self.L = len(self.Lprec[:bound + 1])
 
-    else:
-        # Update parameters dimension (during training parameters will be initialised)
-        self.L = 1
-        self.Lprec = np.array([0])
-        all_statistics = np.reshape(new_statistics, (len(adjacency_lists), 1, self.A, self.C2))
+        # Decode the record read by the reader
+        features = tf.parse_single_example(example, features=feature)
 
-    # print("L is ", self.L)
+        label = tf.cast(features['train/label'], tf.int64)
 
-    return all_statistics
+        stats = tf.decode_raw(features['train/stats'], tf.float64)
+
+
+        # Reshape image data into the original shape
+        stats = tf.reshape(stats, [1, A, C2])  # add dimension relative to L
+
+        return stats
+
+    # FIRST VERSION: reads a single file and produces a dataset
+    stats_dataset = tf.data.TFRecordDataset([filename + '_' + str(layer)])
+    stats_dataset = stats_dataset.map(parse_example)
+
+    return stats_dataset

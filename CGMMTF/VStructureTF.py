@@ -152,14 +152,14 @@ class VStructure:
                                                                   axis=2))  # --> L x A x 1 x C2
 
         # Compute the expected complete log likelihood
-        self.compute_likelihood = tf.reduce_sum(tf.multiply(posterior_ui, tf.log(emission_for_labels))) \
+        l = tf.reduce_sum(tf.multiply(posterior_ui, tf.log(emission_for_labels))) \
                             + tf.reduce_sum(np.multiply(posterior_uli, tf.log(broadcastable_layerS))) \
                             + tf.reduce_sum(np.multiply(posterior_estimate,
                                                  tf.reshape(tf.log(self.arcS), [1, self.L, self.A, 1]))) \
                             + tf.reduce_sum(tf.multiply(tf.multiply(eulaij, broadcastable_stats), log_trans))
 
         # self.compute_likelihood becomes an assign op
-        self.compute_likelihood = tf.assign(self.likelihood, [self.compute_likelihood])
+        self.compute_likelihood = tf.assign(self.likelihood, [l])
 
         self.update_emission   = tf.assign(self.emission, tf.divide(self.emission_numerator, self.emission_denominator))
         self.update_transition = tf.assign(self.transition, tf.divide(self.transition_numerator, self.transition_denominator))
@@ -233,7 +233,6 @@ class VStructure:
         old_likelihood = - np.inf
         delta = np.inf
 
-        # TODO i should pass both the dataset and the statistics as a single element of the dataset --> MAYBE
         target_iterator = batch_dataset.make_initializable_iterator()
         target_next_element = target_iterator.get_next()
 
@@ -253,6 +252,7 @@ class VStructure:
             while True:
                 try:
                     batch = sess.run(target_next_element)
+
                     stats = sess.run(stats_next_element)
 
                     # For batch in batches
