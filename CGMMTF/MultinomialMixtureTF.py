@@ -51,6 +51,11 @@ class MultinomialMixture:
 
         self.likelihood = tf.Variable(initial_value=tf.zeros([1]))
 
+        self.compute_likelihood, self.update_prior_num, self.update_prior_den, \
+            self.update_emission_num, self.update_emission_den, self.update_prior, self.update_emission, \
+            self.inference = self.build_computation_graph()
+
+    def build_computation_graph(self):
         # -------------------------------- E-step -------------------------------- #
 
         emission_for_labels = tf.gather_nd(self.emission, self.labels)  # UxC
@@ -67,34 +72,38 @@ class MultinomialMixture:
         posterior_estimate = tf.divide(numerator, denominator)  # --> UxC
 
         # Compute the expected complete log likelihood
-        self.compute_likelihood = tf.assign_add(self.likelihood,
+        compute_likelihood = tf.assign_add(self.likelihood,
                                         [tf.reduce_sum(tf.multiply(posterior_estimate, tf.log(numerator)))])
 
         # -------------------------------- M-step -------------------------------- #
 
         # These are used at each minibatch
-        self.update_prior_num = tf.assign_add(self.prior_numerator, tf.reduce_sum(posterior_estimate, axis=0))
-        self.update_prior_den = tf.assign_add(self.prior_denominator, [tf.reduce_sum(posterior_estimate)])
+        update_prior_num = tf.assign_add(self.prior_numerator, tf.reduce_sum(posterior_estimate, axis=0))
+        update_prior_den = tf.assign_add(self.prior_denominator, [tf.reduce_sum(posterior_estimate)])
 
         labels = tf.squeeze(self.labels)  # removes dimensions of size 1 (current is ?x1)
 
-        self.update_emission_num = tf.scatter_add(self.emission_numerator, labels, posterior_estimate)
+        update_emission_num = tf.scatter_add(self.emission_numerator, labels, posterior_estimate)
 
-        self.update_emission_den = tf.assign_add(self.emission_denominator,
+        update_emission_den = tf.assign_add(self.emission_denominator,
                                                  [tf.reduce_sum(posterior_estimate, axis=0)])
 
         # These are used at the end of an epoch to update the distributions
-        self.update_prior = tf.assign(self.prior, tf.divide(self.prior_numerator, self.prior_denominator))
-        self.update_emission = tf.assign(self.emission, tf.divide(self.emission_numerator, self.emission_denominator))
+        update_prior = tf.assign(self.prior, tf.divide(self.prior_numerator, self.prior_denominator))
+        update_emission = tf.assign(self.emission, tf.divide(self.emission_numerator, self.emission_denominator))
 
-        # Inference node
-        self.inference = tf.argmax(numerator, axis=1)
+        # ------------------------------- Inference ------------------------------ #
 
-    def train(self, target, sess, batch_size=2000, threshold=0, max_epochs=10):
+        inference = tf.argmax(numerator, axis=1)
+
+        return compute_likelihood, update_prior_num, update_prior_den, update_emission_num, update_emission_den, \
+               update_prior, update_emission, inference
+
+    def train(self, batch_dataset, sess, threshold=0, max_epochs=10):
         """
         Training with Expectation Maximisation (EM) Algorithm
-        :param target: the target labels in a single array
-        :param batch_size: the size of the minibatch
+        :param batch_dataset: the target labels in a single batch dataset
+        :param sess: TensorFlow session
         :param threshold: stopping criterion based on the variation of the likelihood
         :param max_epochs: maximum number of epochs
         """
@@ -104,9 +113,6 @@ class MultinomialMixture:
         old_likelihood = - np.inf
         delta = np.inf
 
-        # build minibatches from dataset
-        dataset = tf.data.Dataset.from_tensor_slices(target)
-        batch_dataset = dataset.batch(batch_size=batch_size)
         iterator = batch_dataset.make_initializable_iterator()
         next_element = iterator.get_next()
 
@@ -141,7 +147,7 @@ class MultinomialMixture:
 
             print("End of epoch", current_epoch, "likelihood:", likelihood)
 
-    def compute_inference(self, target, sess, batch_size=2000):
+    def perform_inference(self, target, sess, batch_size=2000):
         """
         Takes a set and returns the most likely hidden state assignment for each node
         :param target: the target labels in a single array
