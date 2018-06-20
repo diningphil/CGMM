@@ -3,6 +3,10 @@ import random
 import numpy as np
 import tensorflow as tf
 
+import os
+
+folder = 'saved_statistics'
+
 
 def save_statistics(adjacency_lists, inferred_states, target, A, C2, filename, layer_no):
     """
@@ -13,8 +17,11 @@ def save_statistics(adjacency_lists, inferred_states, target, A, C2, filename, l
 
     C2 += 1  # always need to consider the bottom state
 
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+
     # open the TFRecords file
-    writer = tf.python_io.TFRecordWriter(filename + '_' + str(layer_no))
+    writer = tf.python_io.TFRecordWriter(folder + '/' + filename + '_' + str(layer_no))
 
     for u in range(0, len(adjacency_lists)):
         # Compute statistics
@@ -41,7 +48,7 @@ def save_statistics(adjacency_lists, inferred_states, target, A, C2, filename, l
     writer.close()
 
 
-def recover_statistics(filename, layer, A, C2):
+def recover_statistics(filename, layers, A, C2):
     '''
     This function creates the dataset by reading from different files according to "layers".
     :param filename:
@@ -51,28 +58,46 @@ def recover_statistics(filename, layer, A, C2):
     '''
 
     C2 += 1  # always need to consider the bottom state
+    L = len(layers)
 
-    def parse_example(example):
+    def parse_example(*examples):
 
-        feature = {'train/label': tf.FixedLenFeature([], tf.int64),
-                   'train/stats': tf.FixedLenFeature([], tf.string)}
+        stats = None
 
-
-        # Decode the record read by the reader
-        features = tf.parse_single_example(example, features=feature)
-
-        label = tf.cast(features['train/label'], tf.int64)
-
-        stats = tf.decode_raw(features['train/stats'], tf.float64)
+        for l in range(0, L):
+            example = examples[l]
+            feature = {'train/label': tf.FixedLenFeature([], tf.int64),
+                       'train/stats': tf.FixedLenFeature([], tf.string)}
 
 
-        # Reshape image data into the original shape
-        stats = tf.reshape(stats, [1, A, C2])  # add dimension relative to L
+            # Decode the record read by the reader
+            features = tf.parse_single_example(example, features=feature)
+
+            label = tf.cast(features['train/label'], tf.int64)
+
+            l_stats = tf.decode_raw(features['train/stats'], tf.float64)
+
+            # Reshape image data into the original shape
+            l_stats = tf.reshape(l_stats, [A, C2])  # add dimension relative to L
+
+            if stats is None:
+                stats = l_stats
+            else:
+                stats = tf.stack([stats, l_stats])
+
+        if L == 1:
+            stats = tf.reshape(stats, [1, A, C2])  # add dimension relative to L
 
         return stats
 
-    # FIRST VERSION: reads a single file and produces a dataset
-    stats_dataset = tf.data.TFRecordDataset([filename + '_' + str(layer)])
+    layers_stats = []
+    for layer in layers:
+        #print("Loading", filename + '_' + str(layer))
+
+        layer_stats = tf.data.TFRecordDataset([folder + '/' + filename + '_' + str(layer)])
+        layers_stats.append(layer_stats)
+
+    stats_dataset = tf.data.Dataset.zip(tuple(layers_stats))
     stats_dataset = stats_dataset.map(parse_example)
 
     return stats_dataset

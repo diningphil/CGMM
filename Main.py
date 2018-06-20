@@ -4,7 +4,6 @@ from CGMMTF.VStructureTF import VStructure
 from CGMMTF.DatasetUtilities import *
 
 import pickle
-from CGMMTF.DatasetUtilities import unravel
 
 task_name = 'CPDB'
 
@@ -13,13 +12,15 @@ with open('Graph_Tasks/' + task_name + '_data/' + task_name + '_dataset', 'rb') 
 
 X, Y, adjacency_lists, sizes = unravel(graphs, one_target_per_graph=True)
 
-
-L = 1  # TODO it has to be 1 now, when we will load statistics from multiple files L may be set arbitrarily
-C = 20
-C2 = 20
+C = 5
+C2 = 5
 
 batch_size = 2000
-layers = 2
+# use_statistics = [1, 3]  # e.g use the layer-1 and layer-3 statistics
+use_statistics = [1, 3]
+
+layers = 5  # How many layers you will train
+
 
 with tf.Session() as sess:
 
@@ -33,13 +34,20 @@ with tf.Session() as sess:
         mm.train(batch_dataset, sess)
 
     inferred_states = mm.perform_inference(batch_dataset, sess)
+    save_statistics(adjacency_lists, inferred_states, X, A, C2, 'statistiche', 0)
 
     for layer in range(1, layers):
         print("LAYER", layer)
 
-        save_statistics(adjacency_lists, inferred_states, X, A, C2, 'statistiche', layer)
+        # e.g 1 - [1, 3] = [0, -2] --> [0]
+        # e.g 5 - [1, 3] = [4, 2]  --> [4, 2]
+        layer_wise_statistics = [(layer-x) for x in use_statistics if (layer-x) >= 0]
 
-        stats_dataset = recover_statistics('statistiche', layer, A, C2)
+        L = len(layer_wise_statistics)
+
+        # print(layer_wise_statistics)
+
+        stats_dataset = recover_statistics('statistiche', layer_wise_statistics, A, C2)
         batch_statistics = stats_dataset.batch(batch_size=batch_size)
 
         stats_iterator = batch_statistics.make_initializable_iterator()
@@ -50,5 +58,8 @@ with tf.Session() as sess:
         with tf.variable_scope("general_layer"):
             vs = VStructure(C, C2, K, L, A)
 
-            vs.train(batch_dataset, batch_statistics, sess, max_epochs=100)
+            vs.train(batch_dataset, batch_statistics, sess, max_epochs=4)
             inferred_states = vs.perform_inference(batch_dataset, batch_statistics, sess)
+
+            save_statistics(adjacency_lists, inferred_states, X, A, C2, 'statistiche', layer)
+
