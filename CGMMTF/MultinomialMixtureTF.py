@@ -16,21 +16,19 @@ class MultinomialMixture:
 
         # Initialisation of the model's parameters.
         # Notice: the sum-to-1 requirement has been naively satisfied.
-        pr = np.full(c, 1./c)#tf.random_uniform(shape=[self.C], dtype=tf.float64)
-        pr = pr / np.sum(pr)#tf.reduce_sum(pr)
+        pr = tf.random_uniform(shape=[self.C], dtype=tf.float64)
+        pr = pr / tf.reduce_sum(pr)
         self.prior = tf.Variable(initial_value=pr, name='prior', dtype=tf.float64)
 
         # print(self.prior)
 
         emission = np.zeros((k, c))
         for i in range(0, c):
-            em = np.full(k, 1./k)#np.random.uniform(size=k)
+            em = np.random.uniform(size=k)
             em /= np.sum(em)
             emission[:, i] = em
 
         self.emission = tf.Variable(initial_value=emission, name='emission', dtype=tf.float64)
-
-        # print(self.emission)
 
         c_float = tf.cast(self.C, tf.float64)
         k_float = tf.cast(self.K, tf.float64)

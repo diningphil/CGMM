@@ -195,13 +195,13 @@ class VStructure:
     def initialize_parameters(self, c, c2, k, l, a):
         emission_dist = np.zeros((k, c))
         for i in range(0, c):
-            em = np.full(k, 1./k)#np.random.uniform(size=k)
+            em = np.random.uniform(size=k)
             em /= np.sum(em)
             emission_dist[:, i] = em
 
         arc_dist = np.zeros((l, a))
         for layer in range(0, l):
-            dist = np.full(a, 1./a) #np.random.uniform(size=a)
+            dist = np.random.uniform(size=a)
             dist /= np.sum(dist)
             arc_dist[layer, :] = dist
 
@@ -213,7 +213,7 @@ class VStructure:
         for layer in range(0, l):
             for arc in range(0, a):
                 for j in range(0, c2):
-                    tr = np.full(c, 1./c)#np.random.uniform(size=c)
+                    tr = np.random.uniform(size=c)
                     transition_dist[layer, arc, :, j] = tr/np.sum(tr)
 
         emission = tf.Variable(initial_value=emission_dist, name='emission', dtype=tf.float32)

@@ -15,29 +15,17 @@ X, Y, adjacency_lists, sizes = unravel(graphs, one_target_per_graph=True)
 
 
 L = 1  # TODO it has to be 1 now, when we will load statistics from multiple files L may be set arbitrarily
-C = 2
-C2 = 2
+C = 20
+C2 = 20
 
 batch_size = 2000
 layers = 2
-
-# TODO
-# TODO   In the old implementation the likelihood asssociated to the transition part decreases much more quickly,
-# TODO   whilst in the new implementation it stays almost fixed after the 2nd epoch
-
-np.random.seed(0)
-
-# Comparing with the old implementation
-from CGMM.TrainingUtilities import incremental_training
-incremental_training(C,K,A,np.array([1]), adjacency_lists, X, layers, max_epochs=4)
 
 with tf.Session() as sess:
 
     # build minibatches from dataset
     dataset = tf.data.Dataset.from_tensor_slices(np.reshape(X, (X.shape[0], 1)))
     batch_dataset = dataset.batch(batch_size=batch_size)
-
-    np.random.seed(0)
 
     print("LAYER 0")
     with tf.variable_scope("base_layer"):
@@ -62,7 +50,5 @@ with tf.Session() as sess:
         with tf.variable_scope("general_layer"):
             vs = VStructure(C, C2, K, L, A)
 
-            vs.train(batch_dataset, batch_statistics, sess, max_epochs=4)
+            vs.train(batch_dataset, batch_statistics, sess, max_epochs=100)
             inferred_states = vs.perform_inference(batch_dataset, batch_statistics, sess)
-
-            

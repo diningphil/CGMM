@@ -13,13 +13,13 @@ class MultinomialMixture:
 
         # Initialisation of the model's parameters.
         # Notice: the sum-to-1 requirement has been naively satisfied.
-        pr = np.full(c, 1./c)#np.random.uniform(size=self.C)
+        pr = np.random.uniform(size=self.C)
         pr = pr / np.sum(pr)
         self.prior = pr
 
         self.emission = np.empty((self.K, self.C))
         for i in range(0, self.C):
-            em = np.full(k, 1./k)#np.random.uniform(size=self.K)
+            em = np.random.uniform(size=self.K)
             em = em / np.sum(em)
             self.emission[:, i] = em
 
