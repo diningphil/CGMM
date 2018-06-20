@@ -192,6 +192,7 @@ class VStructure:
         # NOTE: this is exactly the same formula as in MultinomialMixture, it changes how you compure the posterior
         self.inference = tf.cast(tf.argmax(self.unnorm_posterior_ui, axis=1), dtype=tf.int32)
 
+
     def initialize_parameters(self, c, c2, k, l, a):
         emission_dist = np.zeros((k, c))
         for i in range(0, c):
@@ -316,8 +317,10 @@ class VStructure:
                 batch = sess.run(target_next_element)
                 stats = sess.run(stats_next_element)
 
+                print(self.inference.shape)
                 # For batch in batches
-                inferred_states = sess.run([self.inference], feed_dict={self.labels: batch, self.stats: stats})
+                inferred_states, input_representations = sess.run([self.inference],
+                                                                feed_dict={self.labels: batch, self.stats: stats})
 
                 if predictions is None:
                     predictions = inferred_states
