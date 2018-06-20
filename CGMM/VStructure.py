@@ -12,7 +12,7 @@ class VStructure:
         # Initialisation of the model's parameters.
         self.emission = np.empty((self.K, self.C))
         for i in range(0, self.C):
-            em = np.random.uniform(size=self.K)
+            em = np.full(self.K, 1./self.K)#    np.random.uniform(size=self.K)
             em = em / np.sum(em)
             self.emission[:, i] = em
 
@@ -22,11 +22,11 @@ class VStructure:
         self.transition = np.empty((self.L, self.A, self.C, self.C2))
 
         for l in range(0, self.L):
-            arcDist = np.random.uniform(size=self.A)  # arc Selector
+            arcDist = np.full(self.A, 1./self.A)#np.random.uniform(size=self.A)  # arc Selector
             self.arcS[l, :] = arcDist / np.sum(arcDist)
             for a in range(0, self.A):
                 for j in range(0, self.C2):
-                    tr = np.random.uniform(size=self.C)
+                    tr = np.full(self.C, 1./self.C)#np.random.uniform(size=self.C)
                     self.transition[l, a, :, j] = tr/np.sum(tr)
 
     def __init__(self, c, c2, k, Lprec, a):
@@ -210,7 +210,6 @@ class VStructure:
                                         np.multiply(np.reshape(self.layerS, (self.L, 1, 1, 1)),
                                                     np.reshape(self.arcS, (self.L, self.A, 1, 1)))) \
                                                               / np.reshape(neighbDim[u, :], (1, self.A, 1, 1))
-
                     start_u = u + start
 
                     num_u = np.multiply(num_u, np.reshape(self.emission[target[start_u], :], (1, 1, self.C, 1)))
@@ -228,8 +227,18 @@ class VStructure:
                             log_trans
                         ))
 
+
+
                     # TRANSITION M-step (included here to save another for loop)
                     num_trans += np.multiply(eulaij, np.reshape(neighbourhoodStats[start_u, :, :, :], (self.L, self.A, 1, self.C2)))
+
+                '''
+                
+                print(np.sum(np.multiply(posterior_ui, np.log(self.emission[target[start:end], :]))),
+                      np.sum(np.multiply(posterior_uli, np.reshape(np.log(self.layerS), (self.L, 1)))),
+                      np.sum(np.multiply(posterior_ulai, np.reshape(np.log(self.arcS), (self.L, self.A, 1)))),
+                      acc)
+                '''
 
 
             # They needs to be put here, since num_* is increased at each minibatch

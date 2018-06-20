@@ -12,28 +12,28 @@ class MultinomialMixture:
         """
         self.C = tf.constant(c)
         self.K = tf.constant(k)
-        self.smoothing = tf.constant(0.0000001)  # Laplace smoothing
+        self.smoothing = tf.constant(0.0000001, dtype=tf.float64)  # Laplace smoothing
 
         # Initialisation of the model's parameters.
         # Notice: the sum-to-1 requirement has been naively satisfied.
-        pr = tf.random_uniform(shape=[self.C])
-        pr = pr / tf.reduce_sum(pr)
-        self.prior = tf.Variable(initial_value=pr, name='prior', dtype=tf.float32)
+        pr = np.full(c, 1./c)#tf.random_uniform(shape=[self.C], dtype=tf.float64)
+        pr = pr / np.sum(pr)#tf.reduce_sum(pr)
+        self.prior = tf.Variable(initial_value=pr, name='prior', dtype=tf.float64)
 
         # print(self.prior)
 
         emission = np.zeros((k, c))
         for i in range(0, c):
-            em = np.random.uniform(size=k)
+            em = np.full(k, 1./k)#np.random.uniform(size=k)
             em /= np.sum(em)
             emission[:, i] = em
 
-        self.emission = tf.Variable(initial_value=emission, name='emission', dtype=tf.float32)
+        self.emission = tf.Variable(initial_value=emission, name='emission', dtype=tf.float64)
 
         # print(self.emission)
 
-        c_float = tf.cast(self.C, tf.float32)
-        k_float = tf.cast(self.K, tf.float32)
+        c_float = tf.cast(self.C, tf.float64)
+        k_float = tf.cast(self.K, tf.float64)
 
         # Build the computation graph
         self.labels = tf.placeholder(shape=[None, 1], dtype=tf.int32, name='labels')
@@ -48,12 +48,21 @@ class MultinomialMixture:
                                               name='emission_num_acc')
         self.emission_denominator = tf.Variable(initial_value=tf.fill([1, self.C], self.smoothing*k_float),
                                                 name='emission_den_acc')
-
-        self.likelihood = tf.Variable(initial_value=tf.zeros([1]))
+        self.likelihood = tf.Variable(initial_value=tf.zeros([1], dtype=tf.float64))
 
         self.compute_likelihood, self.update_prior_num, self.update_prior_den, \
             self.update_emission_num, self.update_emission_den, self.update_prior, self.update_emission, \
             self.inference = self.build_computation_graph()
+
+        self.initializing_likelihood_accumulators = tf.group(
+            *[tf.assign(self.likelihood, [0.]),
+                tf.assign(self.prior_numerator, tf.fill([self.C], self.smoothing)),
+                tf.assign(self.prior_denominator, tf.fill([1], self.smoothing*c_float)),
+                tf.assign(self.emission_numerator, tf.fill([self.K, self.C], self.smoothing)),
+                tf.assign(self.emission_denominator, tf.fill([1, self.C], self.smoothing*k_float))
+              ]
+        )
+
 
     def build_computation_graph(self):
         # -------------------------------- E-step -------------------------------- #
@@ -122,8 +131,8 @@ class MultinomialMixture:
 
             sess.run(iterator.initializer)
 
-            # Reinitialize the likelihood
-            sess.run(tf.assign(self.likelihood, [0.]))
+            # Run the nodes that initialize likelihood and accumulators
+            sess.run([self.initializing_likelihood_accumulators])
 
             while True:
                 try:

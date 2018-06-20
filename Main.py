@@ -1,9 +1,7 @@
 from __future__ import absolute_import, division, print_function
-import numpy as np
-import tensorflow as tf
 from CGMMTF.MultinomialMixtureTF import MultinomialMixture
 from CGMMTF.VStructureTF import VStructure
-from CGMMTF.utils import *
+from CGMMTF.DatasetUtilities import *
 
 import pickle
 from CGMMTF.DatasetUtilities import unravel
@@ -17,25 +15,29 @@ X, Y, adjacency_lists, sizes = unravel(graphs, one_target_per_graph=True)
 
 
 L = 1  # TODO it has to be 1 now, when we will load statistics from multiple files L may be set arbitrarily
-C = 40
-C2 = 40
+C = 2
+C2 = 2
 
 batch_size = 2000
 layers = 2
 
+# TODO
+# TODO   In the old implementation the likelihood asssociated to the transition part decreases much more quickly,
+# TODO   whilst in the new implementation it stays almost fixed after the 2nd epoch
+
+np.random.seed(0)
 
 # Comparing with the old implementation
 from CGMM.TrainingUtilities import incremental_training
-incremental_training(C,K,A,np.array([1]), adjacency_lists, X, layers, max_epochs=10)
+incremental_training(C,K,A,np.array([1]), adjacency_lists, X, layers, max_epochs=4)
 
-# TODO
-# TODO  ERROR! THE LIKELIHOOD IS DIFFERENT! WHY?
-# TODO
 with tf.Session() as sess:
 
     # build minibatches from dataset
     dataset = tf.data.Dataset.from_tensor_slices(np.reshape(X, (X.shape[0], 1)))
     batch_dataset = dataset.batch(batch_size=batch_size)
+
+    np.random.seed(0)
 
     print("LAYER 0")
     with tf.variable_scope("base_layer"):
@@ -44,7 +46,7 @@ with tf.Session() as sess:
 
     inferred_states = mm.perform_inference(batch_dataset, sess)
 
-    for layer in range(0, layers):
+    for layer in range(1, layers):
         print("LAYER", layer)
 
         save_statistics(adjacency_lists, inferred_states, X, A, C2, 'statistiche', layer)
@@ -60,7 +62,7 @@ with tf.Session() as sess:
         with tf.variable_scope("general_layer"):
             vs = VStructure(C, C2, K, L, A)
 
-            vs.train(batch_dataset, batch_statistics, sess)
+            vs.train(batch_dataset, batch_statistics, sess, max_epochs=4)
             inferred_states = vs.perform_inference(batch_dataset, batch_statistics, sess)
 
             

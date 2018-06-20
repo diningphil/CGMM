@@ -25,7 +25,7 @@ class VStructure:
         self.K  = tf.constant(k)
         self.L  = tf.constant(l)
         self.A  = tf.constant(a)
-        self.smoothing = tf.constant(0.0001)  # Laplace smoothing
+        self.smoothing = tf.constant(0.001)  # Laplace smoothing
         self.emission, self.arcS, self.layerS, self.transition = self.initialize_parameters(c, c2, k, l, a)
 
         # ------------------------- Build the computation graph ------------------------- #
@@ -61,12 +61,25 @@ class VStructure:
 
         self.likelihood = tf.Variable(initial_value=[0.])
 
+        self.initializing_likelihood_accumulators = tf.group(
+            *[tf.assign(self.likelihood, [0.]),
+                tf.assign(self.layerS_numerator, tf.fill([self.L], self.smoothing)),
+                tf.assign(self.layerS_denominator, tf.fill([1], self.smoothing*l_float)),
+                tf.assign(self.arcS_numerator, tf.fill([self.L, self.A], self.smoothing)),
+                tf.assign(self.arcS_denominator, tf.fill([self.L, 1], self.smoothing*a_float)),
+                tf.assign(self.transition_numerator, tf.fill([self.L, self.A, self.C, self.C2], self.smoothing)),
+                tf.assign(self.transition_denominator, tf.fill([self.L, self.A, 1, self.C2], self.smoothing*c_float)),
+                tf.assign(self.emission_numerator, tf.fill([self.K, self.C], self.smoothing)),
+                tf.assign(self.emission_denominator, tf.fill([1, self.C], self.smoothing*k_float))
+              ]
+        )
+
         # Compute the neighbourhood dimension for each vertex
         neighbDim = tf.reduce_sum(self.stats[:, 0, :, :], axis=2)  # --> ? x A
 
         # Replace zeros with ones to avoid divisions by zero
         # This does not alter learning: the numerator can still be zero
-        neighbDim = tf.clip_by_value(neighbDim, clip_value_min=1., clip_value_max=tf.int32.max)
+        neighbDim = tf.where(tf.equal(neighbDim, 0.), tf.ones(tf.shape(neighbDim)), neighbDim)
 
         # -------------------------------- E-step -------------------------------- #
 
@@ -97,9 +110,12 @@ class VStructure:
 
         # Normalize
         norm_constant = tf.reshape(tf.reduce_sum(posterior_estimate, axis=[1, 2, 3]), [batch_size, 1, 1, 1])
-        norm_constant = tf.clip_by_value(norm_constant, clip_value_min=1., clip_value_max=tf.float32.max)
+        norm_constant = tf.where(tf.equal(norm_constant, 0.), tf.ones(tf.shape(norm_constant)), norm_constant)
 
         posterior_estimate = tf.divide(posterior_estimate, norm_constant)  # --> ? x L x A x C
+
+        self.posterior_estimate = posterior_estimate
+
         posterior_uli = tf.reduce_sum(posterior_estimate, axis=2)          # --> ? x L x C
         posterior_ui = tf.reduce_sum(posterior_uli, axis=1)                # --> ? x C
 
@@ -122,6 +138,7 @@ class VStructure:
                                              tf.expand_dims(tf.reduce_sum(new_arc_num, axis=1), axis=1))  # --> L x 1
 
         new_layer_num = tf.reduce_sum(posterior_uli, axis=[0, 2])  # --> [L]
+
         self.update_layerS_num = tf.assign_add(self.layerS_numerator, new_layer_num)
         self.update_layerS_den = tf.assign_add(self.layerS_denominator, [tf.reduce_sum(new_layer_num)])  # --> [1]
 
@@ -139,50 +156,38 @@ class VStructure:
         num = tf.multiply(num, tf.reshape(emission_for_labels, [batch_size, 1, 1, self.C, 1]))
         num = tf.multiply(num, broadcastable_stats)
 
-        den = tf.reduce_sum(num)
-        den = tf.clip_by_value(den, clip_value_min=1., clip_value_max=tf.float32.max)
+        den = tf.reduce_sum(num, keepdims=True, axis=[1, 2, 3, 4])  # --> ? x 1 x 1 x 1 x 1
+        den = tf.where(tf.equal(den, 0.), tf.ones(tf.shape(den)), den)
 
         eulaij = tf.divide(num, den)  # --> ? x L x A x C x C2
 
-        self.update_transition_num = tf.assign_add(self.transition_numerator,
-                                                   tf.reduce_sum(tf.multiply(eulaij, broadcastable_stats), axis=0))
+        new_trans_num = tf.reduce_sum(tf.multiply(eulaij, broadcastable_stats), axis=0)
 
+        self.update_transition_num = tf.assign_add(self.transition_numerator, new_trans_num)
         self.update_transition_den = tf.assign_add(self.transition_denominator,
-                                                   tf.expand_dims(tf.reduce_sum(self.update_transition_num, axis=2),
+                                                   tf.expand_dims(tf.reduce_sum(new_trans_num, axis=2),
                                                                   axis=2))  # --> L x A x 1 x C2
 
         # Compute the expected complete log likelihood
-        l = tf.reduce_sum(tf.multiply(posterior_ui, tf.log(emission_for_labels))) \
-                            + tf.reduce_sum(np.multiply(posterior_uli, tf.log(broadcastable_layerS))) \
-                            + tf.reduce_sum(np.multiply(posterior_estimate,
-                                                 tf.reshape(tf.log(self.arcS), [1, self.L, self.A, 1]))) \
-                            + tf.reduce_sum(tf.multiply(tf.multiply(eulaij, broadcastable_stats), log_trans))
+        self.likelihood1 = tf.reduce_sum(tf.multiply(posterior_ui, tf.log(emission_for_labels)))
+        self.likelihood2 = tf.reduce_sum(np.multiply(posterior_uli, tf.log(broadcastable_layerS)))
+        self.likelihood3 = tf.reduce_sum(np.multiply(posterior_estimate,
+                                                 tf.reshape(tf.log(self.arcS), [1, self.L, self.A, 1])))
+
+        self.likelihood4 = tf.reduce_sum(tf.multiply(tf.multiply(eulaij, broadcastable_stats), log_trans))
+
+        likelihood_sum = self.likelihood1 + self.likelihood2 + self.likelihood3 + self.likelihood4
 
         # self.compute_likelihood becomes an assign op
-        self.compute_likelihood = tf.assign(self.likelihood, [l])
+        self.compute_likelihood = tf.assign_add(self.likelihood, [likelihood_sum])
 
         self.update_emission   = tf.assign(self.emission, tf.divide(self.emission_numerator, self.emission_denominator))
-        self.update_transition = tf.assign(self.transition, tf.divide(self.transition_numerator, self.transition_denominator))
+        self.update_transition = tf.assign(self.transition, tf.divide(self.transition_numerator,
+                                                                      self.transition_denominator))
         self.update_arcS       = tf.assign(self.arcS, tf.divide(self.arcS_numerator, self.arcS_denominator))
         self.update_layerS     = tf.assign(self.layerS, tf.divide(self.layerS_numerator, self.layerS_denominator))
 
         # -------------------------------- Inference -------------------------------- #
-
-        '''
-        YOU CAN CHECK THAT THIS PIECE OF CODE COMPUTES the UNNORMALIZED posterior_ui
-
-        arcS_broadcast = tf.reshape(self.arcS, (1, self.L, self.A, 1))
-        layerS_broadcast = tf.reshape(self.layerS, (1, self.L, 1))
-
-        tmp = tf.divide(tmp, div_neighb)
-        # sum(TotNxLxAx1xC2 x 1xLxAxCxC2) over last axis -> TotNxLxAxC
-        tmp = tf.reduce_sum(tf.multiply(tmp, arcS_broadcast), axis=2)  # multiply for each i (and for each node) the vector S
-        # tmp now is TotNxLxC
-        s = tf.reduce_sum(tf.multiply(tmp, layerS_broadcast), axis=1)  # sum for all L values --> TotNxC
-
-        self.prods = tf.multiply(s, emission_for_labels)
-        PRODS == UNNORMALIZED POSTERIOR_UI
-        '''
 
         # NOTE: this is exactly the same formula as in MultinomialMixture, it changes how you compure the posterior
         self.inference = tf.cast(tf.argmax(self.unnorm_posterior_ui, axis=1), dtype=tf.int32)
@@ -190,13 +195,13 @@ class VStructure:
     def initialize_parameters(self, c, c2, k, l, a):
         emission_dist = np.zeros((k, c))
         for i in range(0, c):
-            em = np.random.uniform(size=k)
+            em = np.full(k, 1./k)#np.random.uniform(size=k)
             em /= np.sum(em)
             emission_dist[:, i] = em
 
         arc_dist = np.zeros((l, a))
         for layer in range(0, l):
-            dist = np.random.uniform(size=a)
+            dist = np.full(a, 1./a) #np.random.uniform(size=a)
             dist /= np.sum(dist)
             arc_dist[layer, :] = dist
 
@@ -208,7 +213,7 @@ class VStructure:
         for layer in range(0, l):
             for arc in range(0, a):
                 for j in range(0, c2):
-                    tr = np.random.uniform(size=c)
+                    tr = np.full(c, 1./c)#np.random.uniform(size=c)
                     transition_dist[layer, arc, :, j] = tr/np.sum(tr)
 
         emission = tf.Variable(initial_value=emission_dist, name='emission', dtype=tf.float32)
@@ -247,13 +252,18 @@ class VStructure:
             sess.run(stats_iterator.initializer)
 
             # Reinitialize the likelihood
-            sess.run(tf.assign(self.likelihood, [0.]))
+            sess.run([self.initializing_likelihood_accumulators])
 
             while True:
                 try:
                     batch = sess.run(target_next_element)
-
                     stats = sess.run(stats_next_element)
+
+                    '''
+                    print(sess.run(
+                        [self.likelihood1, self.likelihood2, self.likelihood3, self.likelihood4],
+                        feed_dict={self.labels: batch, self.stats: stats}))
+                    '''
 
                     # For batch in batches
                     likelihood, _, _, _, _, _, _, _, _, = sess.run(
@@ -264,13 +274,19 @@ class VStructure:
                          self.update_emission_num, self.update_emission_den],
                         feed_dict={self.labels: batch, self.stats: stats})
 
+                    '''
+                    print(sess.run(
+                        [self.debug],
+                        feed_dict={self.labels: batch, self.stats: stats}))
+                    '''
+
                 except tf.errors.OutOfRangeError:
                     break
 
             delta = likelihood - old_likelihood
             old_likelihood = likelihood
             current_epoch += 1
-            print("End of epoch", current_epoch, "likelihood:", likelihood)
+            print("End of epoch", current_epoch, "likelihood:", likelihood[0])
 
             # Run update variables passing the required variables
             sess.run([self.update_layerS, self.update_arcS, self.update_emission, self.update_transition])
