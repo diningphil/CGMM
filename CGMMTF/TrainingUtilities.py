@@ -72,7 +72,7 @@ def compute_input_matrix(architecture, C, X, adjacency_lists, sizes, up_to_layer
         return input_matrix
 
 
-def incremental_inference(architecture, A, C2, use_statistics, X, adjacency_lists, sizes, statistics_filename,
+def incremental_inference(architecture, A, C2, use_statistics, target_dataset, adjacency_lists, sizes, statistics_filename,
                           batch_size=2000, up_to_layer=-1):
     '''
     Performs inference throughout the architecture
@@ -80,7 +80,7 @@ def incremental_inference(architecture, A, C2, use_statistics, X, adjacency_list
     :param A:
     :param C2:
     :param use_statistics: the subset of preceeding layers to use
-    :param X: the list of all vertexes labels of the dataset. See unravel in DatasetUtilities.
+    :param target_dataset: a Dataset.
     :param adjacency_lists: a list of lists (one for each vertex) representing the connections between vertexes
     :param sizes: needed to determine which vertexes belong to which graph and build the output
     :param batch_size: batch inference for efficiency purposes
@@ -95,8 +95,7 @@ def incremental_inference(architecture, A, C2, use_statistics, X, adjacency_list
     with tf.Session() as sess:
 
         # build minibatches from dataset
-        dataset = tf.data.Dataset.from_tensor_slices(np.reshape(X, (X.shape[0], 1)))
-        batch_dataset = dataset.batch(batch_size=batch_size)
+        batch_dataset = target_dataset.batch(batch_size=batch_size)
 
         for layer in range(0, max_depth):
             model = architecture[layer]
@@ -114,14 +113,14 @@ def incremental_inference(architecture, A, C2, use_statistics, X, adjacency_list
 
                 inferred_states = model.perform_inference(batch_dataset, batch_statistics, sess)
 
-            save_statistics(adjacency_lists, inferred_states, X, A, C2, statistics_filename, layer)
+            save_statistics(adjacency_lists, inferred_states, A, C2, statistics_filename, layer)
 
     # TODO NOW CHOOSE WHAT TO RETURN!
     # IT MAY BE THE A MATRIX [?, C] from which to compute the vector of frequency counts
     # return: [no_graphs, L, C] tensor of frequency counts vectors for each layer and vertex
 
 
-def incremental_training(C, K, A, use_statistics, adjacency_lists, X, layers, statistics_filename,
+def incremental_training(C, K, A, use_statistics, adjacency_lists, target_dataset, layers, statistics_filename,
                          threshold=0, max_epochs=100, batch_size=2000):
     '''
     Build an architecture. Assumes C is equal to C2, as it is often the case
@@ -131,7 +130,7 @@ def incremental_training(C, K, A, use_statistics, adjacency_lists, X, layers, st
     :param use_statistics: an array with a subset of preceding layers to consider. For example, np.array([1,2,3])
     considers the immediate 3 preceding layers, whenever possible.
     :param adjacency_lists: a list of lists (one for each vertex) representing the connections between vertexes
-    :param X: the list of all vertexes labels of the dataset. See unravel in DatasetUtilities.
+    :param target_dataset: a Dataset.
     :param layers: the depth of the architecture
     :param threshold: the threshold parameter for the EM algorithm
     :param max_epochs: the maximum number of epochs per training
@@ -141,8 +140,7 @@ def incremental_training(C, K, A, use_statistics, adjacency_lists, X, layers, st
 
     with tf.Session() as sess:
         # build minibatches from dataset
-        dataset = tf.data.Dataset.from_tensor_slices(np.reshape(X, (X.shape[0], 1)))
-        batch_dataset = dataset.batch(batch_size=batch_size)
+        batch_dataset = target_dataset.batch(batch_size=batch_size)
 
         print("LAYER 0")
         with tf.variable_scope("base_layer"):
@@ -150,7 +148,7 @@ def incremental_training(C, K, A, use_statistics, adjacency_lists, X, layers, st
             mm.train(batch_dataset, sess, max_epochs=max_epochs, threshold=threshold)
 
         inferred_states = mm.perform_inference(batch_dataset, sess)
-        save_statistics(adjacency_lists, inferred_states, X, A, C, statistics_filename, 0)
+        save_statistics(adjacency_lists, inferred_states, A, C, statistics_filename, 0)
 
         architecture.append(mm)
 
@@ -173,7 +171,7 @@ def incremental_training(C, K, A, use_statistics, adjacency_lists, X, layers, st
 
                 vs.train(batch_dataset, batch_statistics, sess, max_epochs=max_epochs, threshold=threshold)
                 inferred_states = vs.perform_inference(batch_dataset, batch_statistics, sess)
-                save_statistics(adjacency_lists, inferred_states, X, A, C, statistics_filename, layer)
+                save_statistics(adjacency_lists, inferred_states, A, C, statistics_filename, layer)
 
             architecture.append(vs)
 

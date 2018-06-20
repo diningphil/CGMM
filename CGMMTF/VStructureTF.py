@@ -317,10 +317,8 @@ class VStructure:
                 batch = sess.run(target_next_element)
                 stats = sess.run(stats_next_element)
 
-                print(self.inference.shape)
                 # For batch in batches
-                inferred_states, input_representations = sess.run([self.inference],
-                                                                feed_dict={self.labels: batch, self.stats: stats})
+                inferred_states = sess.run([self.inference], feed_dict={self.labels: batch, self.stats: stats})
 
                 if predictions is None:
                     predictions = inferred_states

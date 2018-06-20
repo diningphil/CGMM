@@ -8,7 +8,7 @@ import os
 folder = 'saved_statistics'
 
 
-def save_statistics(adjacency_lists, inferred_states, target, A, C2, filename, layer_no):
+def save_statistics(adjacency_lists, inferred_states, A, C2, filename, layer_no):
     """
     :param last_states: the last array of states
     :param prev_statistics: the statistics needed: list of numpy matrices UxAxC2
@@ -32,11 +32,8 @@ def save_statistics(adjacency_lists, inferred_states, target, A, C2, filename, l
             node_state = inferred_states[u2]
             statistics[a, node_state] += 1
 
-        # Create a new Example
-        label = target[u]
         # Create a feature
-        feature = {'train/label': tf.train.Feature(int64_list=tf.train.Int64List(value=[label])),
-                   'train/stats': tf.train.Feature(bytes_list=tf.train.BytesList(value=[statistics.tostring()]))}
+        feature = {'train/stats': tf.train.Feature(bytes_list=tf.train.BytesList(value=[statistics.tostring()]))}
 
         # Create an example protocol buffer
         example = tf.train.Example(features=tf.train.Features(feature=feature))
@@ -66,33 +63,27 @@ def recover_statistics(filename, layers, A, C2):
 
         for l in range(0, L):
             example = examples[l]
-            feature = {'train/label': tf.FixedLenFeature([], tf.int64),
-                       'train/stats': tf.FixedLenFeature([], tf.string)}
+            feature = {'train/stats': tf.FixedLenFeature([], tf.string)}
 
 
             # Decode the record read by the reader
             features = tf.parse_single_example(example, features=feature)
 
-            label = tf.cast(features['train/label'], tf.int64)
-
             l_stats = tf.decode_raw(features['train/stats'], tf.float64)
 
             # Reshape image data into the original shape
-            l_stats = tf.reshape(l_stats, [A, C2])  # add dimension relative to L
+            l_stats = tf.reshape(l_stats, [1, A, C2])  # add dimension relative to L
 
             if stats is None:
                 stats = l_stats
             else:
-                stats = tf.stack([stats, l_stats])
-
-        if L == 1:
-            stats = tf.reshape(stats, [1, A, C2])  # add dimension relative to L
+                stats = tf.concat([stats, l_stats], axis=0)
 
         return stats
 
     layers_stats = []
     for layer in layers:
-        #print("Loading", filename + '_' + str(layer))
+        # print("Loading", filename + '_' + str(layer))
 
         layer_stats = tf.data.TFRecordDataset([folder + '/' + filename + '_' + str(layer)])
         layers_stats.append(layer_stats)
