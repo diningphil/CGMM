@@ -20,8 +20,11 @@ def save_statistics(adjacency_lists, inferred_states, A, C2, filename, layer_no)
     if not os.path.exists(folder):
         os.makedirs(folder)
 
+    if not os.path.exists(os.path.join(folder, filename)):
+        os.makedirs(os.path.join(folder, filename))
+
     # open the TFRecords file
-    writer = tf.python_io.TFRecordWriter(folder + '/' + filename + '_' + str(layer_no))
+    writer = tf.python_io.TFRecordWriter(os.path.join(folder, filename, filename) + '_' + str(layer_no))
 
     for u in range(0, len(adjacency_lists)):
         # Compute statistics
@@ -85,7 +88,7 @@ def recover_statistics(filename, layers, A, C2):
     for layer in layers:
         # print("Loading", filename + '_' + str(layer))
 
-        layer_stats = tf.data.TFRecordDataset([folder + '/' + filename + '_' + str(layer)])
+        layer_stats = tf.data.TFRecordDataset([os.path.join(folder, filename, filename) + '_' + str(layer)])
         layers_stats.append(layer_stats)
 
     stats_dataset = tf.data.Dataset.zip(tuple(layers_stats))

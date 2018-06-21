@@ -9,15 +9,18 @@ def current_milli_time():
 
 
 class VStructure:
-    def __init__(self, c, c2, k, l, a):
+    def __init__(self, c, c2, k, l, a, current_layer):
         """
         Multinomial mixture model
         :param c: the number of hidden states
         :param c2: the number of states of the "children"
         :param k: dimension of output's alphabet, which goes from 0 to K-1
         :param l: number of layers to consider. You must pass the appropriate number of statistics at training
-        :param a: dimension of edges' alphabet, which goes from 0 to A-1
+        :param a: dimension of edges' alphabet, which goes from 0 to A-
+        :param current_layer: used to save and restore the model
         """
+        self.current_layer = str(current_layer)
+
         c2 = c2 + 1  # always consider a bottom state also
 
         self.C  = tf.constant(c)
@@ -192,7 +195,6 @@ class VStructure:
         # NOTE: this is exactly the same formula as in MultinomialMixture, it changes how you compure the posterior
         self.inference = tf.cast(tf.argmax(self.unnorm_posterior_ui, axis=1), dtype=tf.int32)
 
-
     def initialize_parameters(self, c, c2, k, l, a):
         emission_dist = np.zeros((k, c))
         for i in range(0, c):
@@ -217,10 +219,14 @@ class VStructure:
                     tr = np.random.uniform(size=c)
                     transition_dist[layer, arc, :, j] = tr/np.sum(tr)
 
-        emission = tf.Variable(initial_value=emission_dist, name='emission', dtype=tf.float32)
-        arcS = tf.Variable(initial_value=arc_dist, name='arcSelector', dtype=tf.float32)
-        layerS = tf.Variable(initial_value=layer_dist, name='layerSelector', dtype=tf.float32)
-        transition = tf.Variable(initial_value=transition_dist, name='transition', dtype=tf.float32)
+        emission = tf.Variable(initial_value=emission_dist, name='layer-' + self.current_layer + '-emission',
+                               dtype=tf.float32)
+        arcS = tf.Variable(initial_value=arc_dist, name='layer-' + self.current_layer + '-arcSelector',
+                           dtype=tf.float32)
+        layerS = tf.Variable(initial_value=layer_dist, name='layer-' + self.current_layer + '-layerSelector',
+                             dtype=tf.float32)
+        transition = tf.Variable(initial_value=transition_dist, name='layer-' + self.current_layer + '-transition',
+                                 dtype=tf.float32)
 
         return emission, arcS, layerS, transition
 
@@ -233,7 +239,6 @@ class VStructure:
         :param threshold: stopping criterion based on the variation off the likelihood
         :param max_epochs: maximum number of epochs
         """
-
         # EM Algorithm
         current_epoch = 0
         old_likelihood = - np.inf
@@ -291,7 +296,6 @@ class VStructure:
 
             # Run update variables passing the required variables
             sess.run([self.update_layerS, self.update_arcS, self.update_emission, self.update_transition])
-
 
     def perform_inference(self, batch_dataset, batch_statistics, sess):
         """

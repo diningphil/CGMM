@@ -1,7 +1,5 @@
 from __future__ import absolute_import, division, print_function
 import time
-import numpy as np
-import tensorflow as tf
 from CGMMTF.MultinomialMixtureTF import MultinomialMixture
 from CGMMTF.VStructureTF import VStructure
 from CGMMTF.DatasetUtilities import *
@@ -72,8 +70,8 @@ def compute_input_matrix(architecture, C, X, adjacency_lists, sizes, up_to_layer
         return input_matrix
 
 
-def incremental_inference(architecture, A, C2, use_statistics, target_dataset, adjacency_lists, sizes, statistics_filename,
-                          batch_size=2000, up_to_layer=-1):
+def incremental_inference(model_name, A, C2, use_statistics, target_dataset, adjacency_lists, sizes,
+                          statistics_filename, batch_size=2000, up_to_layer=-1):
     '''
     Performs inference throughout the architecture
     :param architecture: the trained architecture
@@ -87,13 +85,14 @@ def incremental_inference(architecture, A, C2, use_statistics, target_dataset, a
     :param up_to_layer: by default, up to the end of the architecture. Alternatively one can specify when to stop
     :return: [no_graphs, L, C] tensor of frequency counts vectors for each layer and vertex
     '''
+    # TODO LOAD THE ARCHITECTURE!
+
     if up_to_layer != -1:
         max_depth = up_to_layer
     else:
         max_depth = len(architecture)
 
     with tf.Session() as sess:
-
         # build minibatches from dataset
         batch_dataset = target_dataset.batch(batch_size=batch_size)
 
@@ -121,7 +120,7 @@ def incremental_inference(architecture, A, C2, use_statistics, target_dataset, a
 
 
 def incremental_training(C, K, A, use_statistics, adjacency_lists, target_dataset, layers, statistics_filename,
-                         threshold=0, max_epochs=100, batch_size=2000):
+                         threshold=0, max_epochs=100, batch_size=2000, save_name=None):
     '''
     Build an architecture. Assumes C is equal to C2, as it is often the case
     :param C: the size of the hidden states' alphabet
@@ -136,7 +135,7 @@ def incremental_training(C, K, A, use_statistics, adjacency_lists, target_datase
     :param max_epochs: the maximum number of epochs per training
     :return: an architecture)
     '''
-    architecture = []
+    variables_to_save = []
 
     with tf.Session() as sess:
         # build minibatches from dataset
@@ -147,10 +146,12 @@ def incremental_training(C, K, A, use_statistics, adjacency_lists, target_datase
             mm = MultinomialMixture(C, K)
             mm.train(batch_dataset, sess, max_epochs=max_epochs, threshold=threshold)
 
+            if save_name is not None:
+                # Add ops to save and restore the variables ('uses the variables' names')
+                variables_to_save.extend([mm.prior, mm.emission])
+
         inferred_states = mm.perform_inference(batch_dataset, sess)
         save_statistics(adjacency_lists, inferred_states, A, C, statistics_filename, 0)
-
-        architecture.append(mm)
 
         for layer in range(1, layers):
             print("LAYER", layer)
@@ -167,12 +168,17 @@ def incremental_training(C, K, A, use_statistics, adjacency_lists, target_datase
             batch_statistics = stats_dataset.batch(batch_size=batch_size)
 
             with tf.variable_scope("general_layer"):
-                vs = VStructure(C, C, K, L, A)
+                vs = VStructure(C, C, K, L, A, current_layer=layer)
 
                 vs.train(batch_dataset, batch_statistics, sess, max_epochs=max_epochs, threshold=threshold)
+
+                if save_name is not None:
+                    # Add ops to save and restore the variables ('uses the variables' names')
+                    variables_to_save.extend([vs.emission, vs.arcS, vs.layerS, vs.transition])
+
                 inferred_states = vs.perform_inference(batch_dataset, batch_statistics, sess)
                 save_statistics(adjacency_lists, inferred_states, A, C, statistics_filename, layer)
 
-            architecture.append(vs)
-
-    return architecture
+            if save_name is not None:
+                saver = tf.train.Saver(variables_to_save)
+                saver.save(sess, './checkpoints/' + save_name + '/model.ckpt')

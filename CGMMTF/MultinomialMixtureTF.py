@@ -18,7 +18,7 @@ class MultinomialMixture:
         # Notice: the sum-to-1 requirement has been naively satisfied.
         pr = tf.random_uniform(shape=[self.C], dtype=tf.float64)
         pr = pr / tf.reduce_sum(pr)
-        self.prior = tf.Variable(initial_value=pr, name='prior', dtype=tf.float64)
+        self.prior = tf.Variable(initial_value=pr, name='layer0_prior', dtype=tf.float64)
 
         # print(self.prior)
 
@@ -28,7 +28,7 @@ class MultinomialMixture:
             em /= np.sum(em)
             emission[:, i] = em
 
-        self.emission = tf.Variable(initial_value=emission, name='emission', dtype=tf.float64)
+        self.emission = tf.Variable(initial_value=emission, name='layer0_emission', dtype=tf.float64)
 
         c_float = tf.cast(self.C, tf.float64)
         k_float = tf.cast(self.K, tf.float64)
@@ -114,7 +114,6 @@ class MultinomialMixture:
         :param threshold: stopping criterion based on the variation of the likelihood
         :param max_epochs: maximum number of epochs
         """
-
         # EM Algorithm
         current_epoch = 0
         old_likelihood = - np.inf
