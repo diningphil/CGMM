@@ -20,7 +20,7 @@ C = 10
 C2 = 10
 # use_statistics = [1, 3]  # e.g use the layer-1 and layer-3 statistics
 use_statistics = [1, 2]
-layers = 5  # How many layers you will train
+layers = 3  # How many layers you will train
 
 batch_size = 2000
 
@@ -30,7 +30,17 @@ batch_size = 2000
 '''
 
 save_name = 'first_experiment'
+statistics_name = 'statistiche'
+statistics_inference_name = 'statistiche_inferenza'
+
+incremental_training(C, K, A, use_statistics, adjacency_lists, target_dataset, layers, statistics_name,
+                         threshold=0, max_epochs=3, batch_size=2000, save_name=save_name)
 
 
-incremental_training(C, K, A, use_statistics, adjacency_lists, target_dataset, layers, 'statistiche',
-                         threshold=0, max_epochs=10, batch_size=2000, save_name=save_name)
+# Now recreate the dataset and the computation graph, because incremental_training resets the graph at the end
+# (after saving the model)
+target_dataset = tf.data.Dataset.from_tensor_slices(np.reshape(X, (X.shape[0], 1)))
+architecture = build_architecture(K, A, C, use_statistics, layers)
+
+incremental_inference(architecture, save_name, A, C, use_statistics, target_dataset, adjacency_lists, sizes,
+                          statistics_inference_name, batch_size=batch_size)
