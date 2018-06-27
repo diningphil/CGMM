@@ -86,7 +86,7 @@ def build_architecture(K, A, C, use_statistics, layers):
 
 
 def incremental_inference(architecture, model_name, A, C, use_statistics, target_dataset, adjacency_lists, sizes,
-                          statistics_filename, batch_size=2000):
+                          unigram_filename, statistics_filename, batch_size=2000):
     '''
     Performs inference throughout the architecture. Assumes C = C2
     :param architecture:
@@ -97,7 +97,6 @@ def incremental_inference(architecture, model_name, A, C, use_statistics, target
     :param adjacency_lists: a list of lists (one for each vertex) representing the connections between vertexes
     :param sizes: needed to determine which vertexes belong to which graph and build the output
     :param batch_size: batch inference for efficiency purposes
-    :param up_to_layer: by default, up to the end of the architecture. Alternatively one can specify when to stop
     :return: [no_graphs, L, C] tensor of frequency counts vectors for each layer and vertex
     '''
     with tf.Session() as sess:
@@ -109,9 +108,9 @@ def incremental_inference(architecture, model_name, A, C, use_statistics, target
         for layer in range(0, max_depth):
             model = architecture[layer]
             if layer == 0:
-                variables_to_restore.extend([model.prior])#, model.emission])
+                variables_to_restore.extend([model.prior, model.emission])
             else:
-                pass#variables_to_restore.extend([model.transition, model.emission, model.arcS, model.layerS])
+                variables_to_restore.extend([model.transition, model.emission, model.arcS, model.layerS])
 
         restore = tf.train.Saver(variables_to_restore)
         restore.restore(sess, os.path.join(checkpoint_folder, model_name, 'model.ckpt'))
@@ -125,7 +124,12 @@ def incremental_inference(architecture, model_name, A, C, use_statistics, target
 
             if layer == 0:
                 print("INFERENCE LAYER 0")
+
+                # TODO you should find an elegant way to store vectors batch by batch. It is not so simple
+                # because of the sizes argument
                 inferred_states = model.perform_inference(batch_dataset, sess)
+                save_unigrams(_aggregate_states(C, sizes, inferred_states), unigram_filename, layer)
+
             else:
                 print("INFERENCE LAYER", layer)
 
@@ -134,16 +138,19 @@ def incremental_inference(architecture, model_name, A, C, use_statistics, target
                 stats_dataset = recover_statistics(statistics_filename, layer_wise_statistics, A, C)
                 batch_statistics = stats_dataset.batch(batch_size=batch_size)
 
+                # TODO you should find an elegant way to store vectors batch by batch. It is not so simple
+                # because of the sizes argument
                 inferred_states = model.perform_inference(batch_dataset, batch_statistics, sess)
+                save_unigrams(_aggregate_states(C, sizes, inferred_states), unigram_filename, layer)
 
             save_statistics(adjacency_lists, inferred_states, A, C, statistics_filename, layer)
 
     print("Resetting the default graph")
     tf.reset_default_graph()
 
-    # TODO NOW CHOOSE WHAT TO RETURN!
-    # IT MAY BE THE A MATRIX [?, C] from which to compute the vector of frequency counts
-    # return: [no_graphs, L, C] tensor of frequency counts vectors for each layer and vertex
+    # Clear the statistics files (no longer necessary)
+    for layer_no in range(0, max_depth):
+        os.remove(os.path.join(stats_folder, statistics_filename, statistics_filename + '_' + str(layer_no)))
 
 
 def incremental_training(C, K, A, use_statistics, adjacency_lists, target_dataset, layers, statistics_filename,
@@ -177,6 +184,7 @@ def incremental_training(C, K, A, use_statistics, adjacency_lists, target_datase
             # Add ops to save and restore the variables ('uses the variables' names')
             variables_to_save.extend([mm.prior, mm.emission])
 
+        # TODO you should find an elegant way to get inferred_states as a dataset, to limit memory consumption
         inferred_states = mm.perform_inference(batch_dataset, sess)
         save_statistics(adjacency_lists, inferred_states, A, C, statistics_filename, 0)
 
@@ -202,6 +210,7 @@ def incremental_training(C, K, A, use_statistics, adjacency_lists, target_datase
                 # Add ops to save and restore the variables ('uses the variables' names')
                 variables_to_save.extend([vs.emission, vs.arcS, vs.layerS, vs.transition])
 
+            # TODO you should find an elegant way to get inferred_states as a dataset, to limit memory consumption
             inferred_states = vs.perform_inference(batch_dataset, batch_statistics, sess)
             save_statistics(adjacency_lists, inferred_states, A, C, statistics_filename, layer)
 
@@ -219,3 +228,6 @@ def incremental_training(C, K, A, use_statistics, adjacency_lists, target_datase
         print("Resetting the default graph")
         tf.reset_default_graph()
 
+    # Clear the statistics files (no longer necessary)
+    for layer_no in range(0, layers):
+        os.remove(os.path.join(stats_folder, statistics_filename, statistics_filename + '_' + str(layer_no)))

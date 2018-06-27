@@ -244,26 +244,22 @@ class VStructure:
         old_likelihood = - np.inf
         delta = np.inf
 
-        target_iterator = batch_dataset.make_initializable_iterator()
-        target_next_element = target_iterator.get_next()
-
-        stats_iterator = batch_statistics.make_initializable_iterator()
-        stats_next_element = stats_iterator.get_next()
+        dataset = tf.data.Dataset.zip((batch_dataset, batch_statistics))
+        iterator = dataset.make_initializable_iterator()
+        next_element = iterator.get_next()
 
         sess.run(tf.global_variables_initializer())
 
         while current_epoch < max_epochs and delta > threshold:
 
-            sess.run(target_iterator.initializer)
-            sess.run(stats_iterator.initializer)
+            sess.run(iterator.initializer)
 
             # Reinitialize the likelihood
             sess.run([self.initializing_likelihood_accumulators])
 
             while True:
                 try:
-                    batch = sess.run(target_next_element)
-                    stats = sess.run(stats_next_element)
+                    batch, stats = sess.run(next_element)
 
                     '''
                     print(sess.run(
@@ -305,21 +301,16 @@ class VStructure:
         :param sess: TensorFlow session
         :returns: most likely hidden state labels
         """
-        target_iterator = batch_dataset.make_initializable_iterator()
-        target_next_element = target_iterator.get_next()
-
-        stats_iterator = batch_statistics.make_initializable_iterator()
-        stats_next_element = stats_iterator.get_next()
-
-        sess.run(target_iterator.initializer)
-        sess.run(stats_iterator.initializer)
+        dataset = tf.data.Dataset.zip((batch_dataset, batch_statistics))
+        iterator = dataset.make_initializable_iterator()
+        next_element = iterator.get_next()
+        sess.run(iterator.initializer)
 
         predictions = None
 
         while True:
             try:
-                batch = sess.run(target_next_element)
-                stats = sess.run(stats_next_element)
+                batch, stats = sess.run(next_element)
 
                 # For batch in batches
                 inferred_states = sess.run([self.inference], feed_dict={self.labels: batch, self.stats: stats})

@@ -5,26 +5,115 @@ import tensorflow as tf
 
 import os
 
-folder = 'saved_statistics'
+stats_folder = 'saved_statistics'
+unigrams_folder = 'saved_unigrams'
+
+
+def save_unigrams(unigrams, unigrams_filename, layer_no):
+    '''
+    :param unigrams:
+    :param unigrams_filename:
+    :param layer:
+    :return:
+    '''
+    if not os.path.exists(unigrams_folder):
+        os.makedirs(unigrams_folder)
+
+    if not os.path.exists(os.path.join(unigrams_folder, unigrams_filename)):
+        os.makedirs(os.path.join(unigrams_folder, unigrams_filename))
+
+    # open the TFRecords file
+    writer = tf.python_io.TFRecordWriter(os.path.join(unigrams_folder, unigrams_filename, unigrams_filename)
+                                         + '_' + str(layer_no))
+
+
+    for i in range(0, unigrams.shape[0]):
+        # Create a feature
+        feature = {'inference/unigram': tf.train.Feature(bytes_list=tf.train.BytesList(value=[unigrams[i,:].tostring()]))}
+
+        # Create an example protocol buffer
+        example = tf.train.Example(features=tf.train.Features(feature=feature))
+
+        # Serialize to string and write on the file
+        writer.write(example.SerializeToString())
+
+    writer.close()
+
+
+def recover_unigrams(unigrams_filename, layers, C, concatenate=True):
+    '''
+    This function creates the dataset by reading from different files according to "layers".
+    :param unigrams_filename:
+    :param layers:
+    :return: A tf.data.Dataset, where each element has shape [?, L*C] if concatenate=True, [?, L, C] otherwise
+    '''
+    L = len(layers)
+
+    def parse_example(*examples):
+
+        unigrams = None
+
+        for l in range(0, L):
+            example = examples[l]
+            feature = {'inference/unigram': tf.FixedLenFeature([], tf.string)}
+
+            # Decode the record read by the reader
+            features = tf.parse_single_example(example, features=feature)
+
+            unigram = tf.decode_raw(features['inference/unigram'], tf.float64)
+
+            # Reshape image data into the original shape
+            if not concatenate:
+                unigram = tf.reshape(unigram, [1, 1, C])  # add dimension relative to L
+
+                if unigrams is None:
+                    unigrams = unigram
+                else:
+                    unigrams = tf.concat([unigrams, unigram], axis=1)  # L is the middle axis
+            else:
+                unigram = tf.reshape(unigram, [1, C])
+
+                if unigrams is None:
+                    unigrams = unigram
+                else:
+                    unigrams = tf.concat([unigrams, unigram], axis=1)  # here we want LxC
+
+        return unigrams
+
+    layers_stats = []
+    for layer in layers:
+        # print("Loading", filename + '_' + str(layer))
+
+        layer_stats = tf.data.TFRecordDataset([os.path.join(unigrams_folder, unigrams_filename, unigrams_filename)
+                                               + '_' + str(layer)])
+        layers_stats.append(layer_stats)
+
+    unigrams_dataset = tf.data.Dataset.zip(tuple(layers_stats))
+    unigrams_dataset = unigrams_dataset.map(parse_example)
+
+    return unigrams_dataset
 
 
 def save_statistics(adjacency_lists, inferred_states, A, C2, filename, layer_no):
-    """
-    :param last_states: the last array of states
-    :param prev_statistics: the statistics needed: list of numpy matrices UxAxC2
-    :return: the statistics needed for this model, according to the Lprec parameter
-    """
-
+    '''
+    :param adjacency_lists:
+    :param inferred_states:
+    :param A:
+    :param C2:
+    :param filename:
+    :param layer_no:
+    :return:
+    '''
     C2 += 1  # always need to consider the bottom state
 
-    if not os.path.exists(folder):
-        os.makedirs(folder)
+    if not os.path.exists(stats_folder):
+        os.makedirs(stats_folder)
 
-    if not os.path.exists(os.path.join(folder, filename)):
-        os.makedirs(os.path.join(folder, filename))
+    if not os.path.exists(os.path.join(stats_folder, filename)):
+        os.makedirs(os.path.join(stats_folder, filename))
 
     # open the TFRecords file
-    writer = tf.python_io.TFRecordWriter(os.path.join(folder, filename, filename) + '_' + str(layer_no))
+    writer = tf.python_io.TFRecordWriter(os.path.join(stats_folder, filename, filename) + '_' + str(layer_no))
 
     for u in range(0, len(adjacency_lists)):
         # Compute statistics
@@ -88,7 +177,7 @@ def recover_statistics(filename, layers, A, C2):
     for layer in layers:
         # print("Loading", filename + '_' + str(layer))
 
-        layer_stats = tf.data.TFRecordDataset([os.path.join(folder, filename, filename) + '_' + str(layer)])
+        layer_stats = tf.data.TFRecordDataset([os.path.join(stats_folder, filename, filename) + '_' + str(layer)])
         layers_stats.append(layer_stats)
 
     stats_dataset = tf.data.Dataset.zip(tuple(layers_stats))
