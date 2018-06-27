@@ -45,4 +45,11 @@ architecture = build_architecture(K, A, C, use_statistics, layers)
 incremental_inference(architecture, save_name, A, C, use_statistics, target_dataset, adjacency_lists, sizes,
                           unigram_inference_name, statistics_inference_name, batch_size=batch_size)
 
-unigrams_dataset = recover_unigrams(unigram_inference_name, layers=[0, 1, 2], C=C, concatenate=True)  # a Map Dataset
+unigrams = recover_unigrams(unigram_inference_name, layers=[0, 1, 2, 3, 4, 5, 6, 7],
+                            C=C, concatenate=True, return_numpy=True)
+
+# vl_acc is -1 if you do not pass validation parameters
+tr_acc, vl_acc = compute_svm_accuracy(unigrams, Y, 10, 5)
+
+
+

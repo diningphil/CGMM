@@ -40,7 +40,7 @@ def save_unigrams(unigrams, unigrams_filename, layer_no):
     writer.close()
 
 
-def recover_unigrams(unigrams_filename, layers, C, concatenate=True):
+def recover_unigrams(unigrams_filename, layers, C, concatenate=True, return_numpy=True):
     '''
     This function creates the dataset by reading from different files according to "layers".
     :param unigrams_filename:
@@ -64,19 +64,19 @@ def recover_unigrams(unigrams_filename, layers, C, concatenate=True):
 
             # Reshape image data into the original shape
             if not concatenate:
-                unigram = tf.reshape(unigram, [1, 1, C])  # add dimension relative to L
+                unigram = tf.reshape(unigram, [1, C])  # add dimension relative to L
 
                 if unigrams is None:
                     unigrams = unigram
                 else:
-                    unigrams = tf.concat([unigrams, unigram], axis=1)  # L is the middle axis
+                    unigrams = tf.concat([unigrams, unigram], axis=0)  # L is the middle axis
             else:
-                unigram = tf.reshape(unigram, [1, C])
+                unigram = tf.reshape(unigram, [C])
 
                 if unigrams is None:
                     unigrams = unigram
                 else:
-                    unigrams = tf.concat([unigrams, unigram], axis=1)  # here we want LxC
+                    unigrams = tf.concat([unigrams, unigram], axis=0)  # here we want LxC
 
         return unigrams
 
@@ -91,7 +91,17 @@ def recover_unigrams(unigrams_filename, layers, C, concatenate=True):
     unigrams_dataset = tf.data.Dataset.zip(tuple(layers_stats))
     unigrams_dataset = unigrams_dataset.map(parse_example)
 
-    return unigrams_dataset
+    if not return_numpy:
+        return unigrams_dataset
+    else:
+        it = unigrams_dataset.batch(100000000).make_one_shot_iterator()
+        n = it.get_next()
+        with tf.Session().as_default():
+            ds = n.eval()
+            print(ds.shape)
+            return ds
+
+
 
 
 def save_statistics(adjacency_lists, inferred_states, A, C2, filename, layer_no):

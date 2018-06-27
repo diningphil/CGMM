@@ -4,6 +4,8 @@ from CGMMTF.MultinomialMixtureTF import MultinomialMixture
 from CGMMTF.VStructureTF import VStructure
 from CGMMTF.DatasetUtilities import *
 
+from sklearn import svm
+
 checkpoint_folder = './checkpoints'
 
 
@@ -32,44 +34,6 @@ def _aggregate_states(C, sizes, states):
         curr_size += size
 
     return np.array(freq_aggregated)
-
-
-def compute_input_matrix(architecture, C, X, adjacency_lists, sizes, up_to_layer=-1, concatenate=False,
-                         return_all_states=False):
-    '''
-    Computes the input matrix (state frequency vectors) of dimension Cx1 if concatenate is False, Cxup_to_layer
-    otherwise.
-    :param architecture: the trained architecture
-    :param C: the size of the hidden states' alphabet
-    :param X: the list of all vertexes labels of the dataset. See unravel in DatasetUtilities.
-    :param adjacency_lists:
-    :param sizes: a list of integers, each of them representing the size of a graph. See unravel in DatasetUtilities.
-    :param up_to_layer: by default, up to the end of the architecture. Alternatively one can specify when to stop
-    :param concatenate: if True, concatenate the layers
-    :param return_all_states: if true, return the numpy matrix of all states computed at all layers
-    :return: the input matrix if return_all_states is False, (input_matrix, all_states) otherwise
-    '''
-
-    if up_to_layer == -1:
-        up_to_layer = len(architecture)
-
-    all_states = incremental_inference(architecture, X, adjacency_lists, up_to_layer=up_to_layer)
-    last_states = all_states[-1, :]  # all states has shape (up_to_layer, len(X))
-
-    if not concatenate:
-        input_matrix = _aggregate_states(C, sizes, last_states)
-    else:
-        for layer in range(0, up_to_layer):
-            new_input_matrix = _aggregate_states(C, sizes, last_states)
-            if layer == 0:
-                input_matrix = new_input_matrix
-            else:
-                input_matrix = np.hstack((input_matrix, new_input_matrix))
-
-    if return_all_states:
-        return input_matrix, all_states
-    else:
-        return input_matrix
 
 
 def build_architecture(K, A, C, use_statistics, layers):
@@ -231,3 +195,30 @@ def incremental_training(C, K, A, use_statistics, adjacency_lists, target_datase
     # Clear the statistics files (no longer necessary)
     for layer_no in range(0, layers):
         os.remove(os.path.join(stats_folder, statistics_filename, statistics_filename + '_' + str(layer_no)))
+
+
+def compute_accuracy(predictions, ground_truth):
+    assert len(predictions) == len(ground_truth)
+    return 100*(np.sum(ground_truth == predictions) / len(predictions))
+
+
+def compute_svm_accuracy(unigrams, Y, svmC, gamma, unigrams_valid=None, Y_valid=None):
+    '''
+    '''
+    # SVC performs a AVA approach for multiclass classification
+    if gamma is None:
+        clf = svm.SVC(C=svmC, kernel='linear', shrinking=False)
+    else:
+        clf = svm.SVC(C=svmC, kernel='rbf', gamma=gamma, shrinking=False)
+
+    # Train on train set
+    clf.fit(unigrams, Y)
+
+    # Compute train accuracy
+    tr_acc = compute_accuracy(clf.predict(unigrams), Y)
+
+    vl_acc = -1
+    if unigrams_valid is not None and Y_valid is not None:
+        vl_acc = compute_accuracy(clf.predict(unigrams_valid), Y_valid)
+
+    return tr_acc, vl_acc
