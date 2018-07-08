@@ -49,7 +49,7 @@ def build_architecture(K, A, C, use_statistics, layers):
     return architecture
 
 
-def incremental_inference(architecture, model_name, A, C, use_statistics, target_dataset, adjacency_lists, sizes,
+def incremental_inference(model_name, K, A, C, layers, use_statistics, target_dataset, adjacency_lists, sizes,
                           unigram_filename, statistics_filename, batch_size=2000):
     '''
     Performs inference throughout the architecture. Assumes C = C2
@@ -63,6 +63,9 @@ def incremental_inference(architecture, model_name, A, C, use_statistics, target
     :param batch_size: batch inference for efficiency purposes
     :return: [no_graphs, L, C] tensor of frequency counts vectors for each layer and vertex
     '''
+
+    architecture = build_architecture(K, A, C, use_statistics, layers)
+
     with tf.Session() as sess:
         variables_to_restore = []
         max_depth = len(architecture)

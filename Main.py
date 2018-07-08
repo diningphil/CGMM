@@ -29,9 +29,13 @@ batch_size = 2000
 
 save_name = 'first_experiment'
 statistics_name = save_name + '_statistiche'
-unigram_inference_name = save_name + '_unigrams'
+unigram_inference_name_train = save_name + '_unigrams_train'
+unigram_inference_name_valid = save_name + '_unigrams_valid'
+
 statistics_inference_name = save_name + '_statistiche_inferenza'
 
+
+# Training and inference phase
 
 incremental_training(C, K, A, use_statistics, adjacency_lists, target_dataset, layers, statistics_name,
                          threshold=0, max_epochs=max_epochs, batch_size=2000, save_name=save_name)
@@ -40,16 +44,24 @@ incremental_training(C, K, A, use_statistics, adjacency_lists, target_dataset, l
 # Now recreate the dataset and the computation graph, because incremental_training resets the graph at the end
 # (after saving the model)
 target_dataset = tf.data.Dataset.from_tensor_slices(np.reshape(X, (X.shape[0], 1)))
-architecture = build_architecture(K, A, C, use_statistics, layers)
 
-incremental_inference(architecture, save_name, A, C, use_statistics, target_dataset, adjacency_lists, sizes,
-                          unigram_inference_name, statistics_inference_name, batch_size=batch_size)
+incremental_inference(save_name, K, A, C, layers, use_statistics, target_dataset, adjacency_lists, sizes,
+                          unigram_inference_name_train, statistics_inference_name, batch_size=batch_size)
 
-unigrams = recover_unigrams(unigram_inference_name, layers=[0, 1, 2, 3, 4, 5, 6, 7],
+# FOR VALIDATION
+#incremental_inference(save_name, K, A, C, layers, use_statistics, target_dataset_valid, adjacency_lists_valid, sizes_valid,
+#                          unigram_inference_name_valid, statistics_inference_name, batch_size=batch_size)
+
+# -------------------------------------------------------------------------------------------------------------
+
+
+unigrams_train = recover_unigrams(unigram_inference_name_train, layers=[0, 1, 2, 3, 4, 5, 6, 7],
                             C=C, concatenate=True, return_numpy=True)
 
+# FOR VALIDATION
+#unigrams_valid = recover_unigrams(unigram_inference_name_train, layers=[0, 1, 2, 3, 4, 5, 6, 7],
+#                            C=C, concatenate=True, return_numpy=True)
+
+
 # vl_acc is -1 if you do not pass validation parameters
-tr_acc, vl_acc = compute_svm_accuracy(unigrams, Y, 10, 5)
-
-
-
+tr_acc, vl_acc = compute_svm_accuracy(unigrams_train, Y, 10, 5, unigrams_valid=None, Y_valid=None)

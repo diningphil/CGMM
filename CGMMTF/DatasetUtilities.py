@@ -98,7 +98,6 @@ def recover_unigrams(unigrams_filename, layers, C, concatenate=True, return_nump
         n = it.get_next()
         with tf.Session().as_default():
             ds = n.eval()
-            print(ds.shape)
             return ds
 
 
