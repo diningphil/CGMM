@@ -138,7 +138,7 @@ def incremental_training(C, K, A, use_statistics, adjacency_lists, target_datase
     '''
     variables_to_save = []
 
-    with tf.Session() as sess:
+    with tf.Session(config=tf.ConfigProto(log_device_placement=True)) as sess:
         # build minibatches from dataset
         batch_dataset = target_dataset.batch(batch_size=batch_size)
 

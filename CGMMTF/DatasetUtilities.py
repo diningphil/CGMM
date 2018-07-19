@@ -26,7 +26,6 @@ def save_unigrams(unigrams, unigrams_filename, layer_no):
     writer = tf.python_io.TFRecordWriter(os.path.join(unigrams_folder, unigrams_filename, unigrams_filename)
                                          + '_' + str(layer_no))
 
-
     for i in range(0, unigrams.shape[0]):
         # Create a feature
         feature = {'inference/unigram': tf.train.Feature(bytes_list=tf.train.BytesList(value=[unigrams[i,:].tostring()]))}
