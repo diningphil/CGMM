@@ -1,7 +1,7 @@
 from __future__ import absolute_import, division, print_function
 import numpy as np
 import tensorflow as tf
-
+from tensorflow.python.client import timeline
 
 class MultinomialMixture:
     def __init__(self, c, k):
@@ -106,7 +106,7 @@ class MultinomialMixture:
         return compute_likelihood, update_prior_num, update_prior_den, update_emission_num, update_emission_den, \
                update_prior, update_emission, inference
 
-    def train(self, batch_dataset, sess, threshold=0, max_epochs=10):
+    def train(self, batch_dataset, sess, threshold=0, max_epochs=10, debug=False):
         """
         Training with Expectation Maximisation (EM) Algorithm
         :param batch_dataset: the target labels in a single batch dataset
@@ -118,6 +118,10 @@ class MultinomialMixture:
         current_epoch = 0
         old_likelihood = - np.inf
         delta = np.inf
+
+        if debug:
+            run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+            run_metadata = tf.RunMetadata()
 
         iterator = batch_dataset.make_initializable_iterator()
         next_element = iterator.get_next()
@@ -135,11 +139,26 @@ class MultinomialMixture:
                 try:
                     batch = sess.run(next_element)
 
-                    # For batch in batches
-                    likelihood, _, _, _, _, = sess.run([self.compute_likelihood,
-                                                        self.update_prior_num, self.update_prior_den,
-                                                        self.update_emission_num, self.update_emission_den],
-                                                       feed_dict={self.labels: batch})
+                    if debug:
+                        # For batch in batches
+                        likelihood, _, _, _, _, = sess.run([self.compute_likelihood,
+                                                            self.update_prior_num, self.update_prior_den,
+                                                            self.update_emission_num, self.update_emission_den],
+                                                           feed_dict={self.labels: batch},
+                                                           options=run_options,
+                                                           run_metadata=run_metadata)
+                        # Create the Timeline object, and write it to a json
+                        tl = timeline.Timeline(run_metadata.step_stats)
+                        ctf = tl.generate_chrome_trace_format()
+                        with open('MM_timeline' + str(current_epoch) + '.json', 'w') as f:
+                            f.write(ctf)
+                    else:
+                        # For batch in batches
+                        likelihood, _, _, _, _, = sess.run([self.compute_likelihood,
+                                                            self.update_prior_num, self.update_prior_den,
+                                                            self.update_emission_num, self.update_emission_den],
+                                                           feed_dict={self.labels: batch})
+
                 except tf.errors.OutOfRangeError:
                     break
 

@@ -140,7 +140,7 @@ def incremental_training(C, K, A, use_statistics, adjacency_lists, batch_dataset
         print("LAYER 0")
 
         mm = MultinomialMixture(C, K)
-        mm.train(batch_dataset, sess, max_epochs=max_epochs, threshold=threshold)
+        mm.train(batch_dataset, sess, max_epochs=max_epochs, threshold=threshold, debug=True)
 
         if save_name is not None:
             # Add ops to save and restore the variables ('uses the variables' names')
