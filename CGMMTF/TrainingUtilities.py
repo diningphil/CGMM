@@ -49,8 +49,8 @@ def build_architecture(K, A, C, use_statistics, layers):
     return architecture
 
 
-def incremental_inference(model_name, K, A, C, layers, use_statistics, target_dataset, adjacency_lists, sizes,
-                          unigram_filename, statistics_filename, batch_size=2000):
+def incremental_inference(model_name, K, A, C, layers, use_statistics, batch_dataset, adjacency_lists, sizes,
+                          unigram_filename, statistics_filename):
     '''
     Performs inference throughout the architecture. Assumes C = C2
     :param architecture:
@@ -82,9 +82,6 @@ def incremental_inference(model_name, K, A, C, layers, use_statistics, target_da
         restore = tf.train.Saver(variables_to_restore)
         restore.restore(sess, os.path.join(checkpoint_folder, model_name, 'model.ckpt'))
         print("Restored all parameters")
-
-        # build minibatches from dataset
-        batch_dataset = target_dataset.batch(batch_size=batch_size)
 
         for layer in range(0, max_depth):
             model = architecture[layer]
@@ -120,8 +117,8 @@ def incremental_inference(model_name, K, A, C, layers, use_statistics, target_da
         os.remove(os.path.join(stats_folder, statistics_filename, statistics_filename + '_' + str(layer_no)))
 
 
-def incremental_training(C, K, A, use_statistics, adjacency_lists, target_dataset, layers, statistics_filename,
-                         threshold=0, max_epochs=100, batch_size=2000, save_name=None):
+def incremental_training(C, K, A, use_statistics, adjacency_lists, batch_dataset, layers, statistics_filename,
+                         threshold=0, max_epochs=100, save_name=None):
     '''
     Build an architecture. Assumes C is equal to C2, as it is often the case
     :param C: the size of the hidden states' alphabet
@@ -138,9 +135,7 @@ def incremental_training(C, K, A, use_statistics, adjacency_lists, target_datase
     '''
     variables_to_save = []
 
-    with tf.Session(config=tf.ConfigProto(log_device_placement=True)) as sess:
-        # build minibatches from dataset
-        batch_dataset = target_dataset.batch(batch_size=batch_size)
+    with tf.Session() as sess:
 
         print("LAYER 0")
 
