@@ -65,6 +65,7 @@ class MultinomialMixture:
     def build_computation_graph(self):
         # -------------------------------- E-step -------------------------------- #
 
+
         emission_for_labels = tf.gather_nd(self.emission, self.labels)  # UxC
         ''' See tf.gather_nd
         indices = [[1], [0]]
@@ -80,7 +81,7 @@ class MultinomialMixture:
 
         # Compute the expected complete log likelihood
         compute_likelihood = tf.assign_add(self.likelihood,
-                                        [tf.reduce_sum(tf.multiply(posterior_estimate, tf.log(numerator)))])
+            [tf.reduce_sum(tf.multiply(posterior_estimate, tf.log(numerator)))])
 
         # -------------------------------- M-step -------------------------------- #
 
@@ -93,14 +94,13 @@ class MultinomialMixture:
         update_emission_num = tf.scatter_add(self.emission_numerator, labels, posterior_estimate)
 
         update_emission_den = tf.assign_add(self.emission_denominator,
-                                                 [tf.reduce_sum(posterior_estimate, axis=0)])
+            [tf.reduce_sum(posterior_estimate, axis=0)])
 
         # These are used at the end of an epoch to update the distributions
         update_prior = tf.assign(self.prior, tf.divide(self.prior_numerator, self.prior_denominator))
         update_emission = tf.assign(self.emission, tf.divide(self.emission_numerator, self.emission_denominator))
 
         # ------------------------------- Inference ------------------------------ #
-
         inference = tf.argmax(numerator, axis=1)
 
         return compute_likelihood, update_prior_num, update_prior_den, update_emission_num, update_emission_den, \

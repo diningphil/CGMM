@@ -136,7 +136,7 @@ def incremental_training(C, K, A, use_statistics, adjacency_lists, batch_dataset
     variables_to_save = []
 
     with tf.Session() as sess:
-
+        
         print("LAYER 0")
 
         mm = MultinomialMixture(C, K)

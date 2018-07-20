@@ -36,7 +36,7 @@ def parse_image_files(filename_tensor):
     return X
 '''
 
-files = ['/home/diningphil/git/CGMM/Images_Tasks/images/img1.png', '/home/diningphil/git/CGMM/Images_Tasks/images/img2.png']
+files = ['Images_Tasks/images/img1.png', 'Images_Tasks/images/img2.png']
 
 
 # Take a dataset of files, create a 1-D tensor for each image, create a Dataset from such tensor, and then concatenate
