@@ -61,7 +61,7 @@ def recover_unigrams(unigrams_filename, layers, C, concatenate=True, return_nump
 
             unigram = tf.decode_raw(features['inference/unigram'], tf.float64)
 
-            # Reshape image data into the original shape
+            # Reshape data into the original shape
             if not concatenate:
                 unigram = tf.reshape(unigram, [1, C])  # add dimension relative to L
 
@@ -98,8 +98,6 @@ def recover_unigrams(unigrams_filename, layers, C, concatenate=True, return_nump
         with tf.Session().as_default():
             ds = n.eval()
             return ds
-
-
 
 
 def save_statistics(adjacency_lists, inferred_states, A, C2, filename, layer_no):

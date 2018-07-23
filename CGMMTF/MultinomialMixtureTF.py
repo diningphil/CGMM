@@ -129,7 +129,6 @@ class MultinomialMixture:
         sess.run(tf.global_variables_initializer())
 
         while current_epoch <= max_epochs and delta > threshold:
-
             sess.run(iterator.initializer)
 
             # Run the nodes that initialize likelihood and accumulators

@@ -50,7 +50,7 @@ def build_architecture(K, A, C, use_statistics, layers):
 
 
 def incremental_inference(model_name, K, A, C, layers, use_statistics, batch_dataset, adjacency_lists, sizes,
-                          unigram_filename, statistics_filename):
+                        unigram_filename, statistics_filename, batch_size=2000):
     '''
     Performs inference throughout the architecture. Assumes C = C2
     :param architecture:
@@ -118,7 +118,7 @@ def incremental_inference(model_name, K, A, C, layers, use_statistics, batch_dat
 
 
 def incremental_training(C, K, A, use_statistics, adjacency_lists, batch_dataset, layers, statistics_filename,
-                         threshold=0, max_epochs=100, save_name=None):
+                         threshold=0, max_epochs=100, batch_size=2000, save_name=None):
     '''
     Build an architecture. Assumes C is equal to C2, as it is often the case
     :param C: the size of the hidden states' alphabet
@@ -136,11 +136,10 @@ def incremental_training(C, K, A, use_statistics, adjacency_lists, batch_dataset
     variables_to_save = []
 
     with tf.Session() as sess:
-        
         print("LAYER 0")
 
         mm = MultinomialMixture(C, K)
-        mm.train(batch_dataset, sess, max_epochs=max_epochs, threshold=threshold, debug=True)
+        mm.train(batch_dataset, sess, max_epochs=max_epochs, threshold=threshold, debug=False)
 
         if save_name is not None:
             # Add ops to save and restore the variables ('uses the variables' names')

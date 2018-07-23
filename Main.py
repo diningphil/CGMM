@@ -34,19 +34,17 @@ unigram_inference_name_valid = save_name + '_unigrams_valid'
 
 statistics_inference_name = save_name + '_statistiche_inferenza'
 
-
 # Training and inference phase
-batch_dataset = target_dataset.batch(batch_size)
+incremental_training(C, K, A, use_statistics, adjacency_lists, target_dataset.batch(batch_size), layers, statistics_name,
+                         threshold=0, max_epochs=max_epochs, batch_size=2000, save_name=save_name)
 
-incremental_training(C, K, A, use_statistics, adjacency_lists, batch_dataset, layers, statistics_name,
-                         threshold=0, max_epochs=max_epochs, save_name=save_name)
 
 # Now recreate the dataset and the computation graph, because incremental_training resets the graph at the end
 # (after saving the model)
 target_dataset = tf.data.Dataset.from_tensor_slices(np.reshape(X, (X.shape[0], 1)))
 
-incremental_inference(save_name, K, A, C, layers, use_statistics, batch_dataset, adjacency_lists, sizes,
-                          unigram_inference_name_train, statistics_inference_name)
+incremental_inference(save_name, K, A, C, layers, use_statistics, target_dataset.batch(batch_size), adjacency_lists, sizes,
+                          unigram_inference_name_train, statistics_inference_name, batch_size=batch_size)
 
 # FOR VALIDATION
 #incremental_inference(save_name, K, A, C, layers, use_statistics, target_dataset_valid, adjacency_lists_valid, sizes_valid,
