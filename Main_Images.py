@@ -27,6 +27,24 @@ batch_dataset = create_dataset(files, batch_size)
 def compute_statistics(inferred_states, file, A, C):
     return np.ones(shape=(len(inferred_states), A, C+1))
 
+
+def merge_statistics(examples, L, C2):
+    stats = None
+
+    for l in range(0, L):
+        example = examples[l]
+
+        # Reshape image data into the original shape
+        l_stats = tf.reshape(example, [1, A, C2])  # add dimension relative to L
+
+        if stats is None:
+            stats = l_stats
+        else:
+            stats = tf.concat([stats, l_stats], axis=0)
+
+    return stats
+
+
 #  --------------------------------------------------------------- #
 
 # Define the model's params (which are given by the task at hand)
@@ -45,7 +63,7 @@ with tf.Session() as sess:
 
     # Add ops to save and restore the variables ('uses the variables' names')
     variables_to_save.extend([mm.prior, mm.emission])
-
+    
     # For each file e.g. TFRecord
     for file in files:
         file_dataset = create_dataset([file], batch_size)
@@ -64,7 +82,7 @@ with tf.Session() as sess:
         if not os.path.exists(os.path.join(stats_folder, exp_name)):
             os.makedirs(os.path.join(stats_folder, exp_name))
 
-        np.save(os.path.join(stats_folder, exp_name) + '/' + file.split('/')[-1] + '_stats_' + str(0), new_stats)
+        np.save(os.path.join(stats_folder, exp_name) + '/' + file.split('/')[-1][:-4] + '_stats_' + str(0), new_stats)
 
     for layer in range(1, layers):
         print("LAYER", layer)
@@ -75,15 +93,25 @@ with tf.Session() as sess:
 
         L = len(layer_wise_statistics)
 
-        # print(layer_wise_statistics)
+        # Create the statistics dataset
+        stats = []
+        for previous_layer in layer_wise_statistics:
+            layer_stats_dataset = None
+            for file in files:
+                dataset = tf.data.Dataset.from_tensor_slices(np.load(os.path.join(stats_folder, exp_name)
+                                                                                 + '/' + file.split('/')[-1][:-4]
+                                                                                 + '_stats_' + str(previous_layer)
+                                                                                 + '.npy'))
+                if layer_stats_dataset is None:
+                    layer_stats_dataset = dataset
+                else:
+                    layer_stats_dataset = layer_stats_dataset.concatenate(dataset)
 
+            stats.append(layer_stats_dataset)
 
-        #RISOLVI QUESTO E POI PENSI AL RESTO
-
-        # TODO problema con la batch dimension. credo di averlo gia' risolto questo
-        stats_dataset = recover_statisticsNEW(exp_name, layer_wise_statistics, A, C)
-        batch_statistics = stats_dataset #stats_dataset.batch(batch_size=batch_size)
-
+        stats_dataset = tf.data.Dataset.zip(tuple(stats))
+        stats_dataset = stats_dataset.map(lambda examples: merge_statistics(examples, L, C+1))
+        batch_statistics = stats_dataset.batch(batch_size=batch_size)
 
         vs = VStructure(C, C, K, L, A, current_layer=layer)
         vs.train(batch_dataset, batch_statistics, sess, max_epochs=max_epochs, threshold=threshold)

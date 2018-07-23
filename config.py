@@ -7,4 +7,4 @@ layers = 8  # How many layers you will train
 
 threshold  = 0.
 max_epochs = 0
-batch_size = 2000
+batch_size = 100000
