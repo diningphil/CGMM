@@ -5,7 +5,7 @@ from CGMMTF.TrainingUtilities import *
 from config import C, layers, use_statistics, max_epochs, threshold, batch_size
 
 # ----------------------- Dataset creation  ----------------------- #
-files = ['Images_Tasks/images/img1.png', 'Images_Tasks/images/img2.png']
+files = ['Images_Tasks/images/img1.png']#, 'Images_Tasks/images/img2.png']
 
 def create_dataset(files, batch_size):
     # Take a dataset of files, create a 1-D tensor for each image, create a Dataset from such tensor, and then concatenate
@@ -55,9 +55,12 @@ exp_name = 'prova'  # save the model with this name
 
 # ------------------------------- Incrementally builds the network ------------------------------- #
 variables_to_save = []
+#tf_config = tf.ConfigProto()
+#tf_config.gpu_options.allow_growth = True
+#with tf.Session(config=tf_config) as sess:
 with tf.Session() as sess:
     print("LAYER 0")
-
+    '''    
     mm = MultinomialMixture(C, K)
     mm.train(batch_dataset, sess, max_epochs=max_epochs, threshold=0., debug=False)
 
@@ -74,7 +77,7 @@ with tf.Session() as sess:
 
         print('STATISTICS...')
         # Compute the statistics
-        new_stats = compute_statistics(inferred_states, file, A, C)
+        new_stats = compute_statistics(inferred_states[0], file, A, C)
 
         if not os.path.exists(stats_folder):
             os.makedirs(stats_folder)
@@ -83,10 +86,10 @@ with tf.Session() as sess:
             os.makedirs(os.path.join(stats_folder, exp_name))
 
         np.save(os.path.join(stats_folder, exp_name) + '/' + file.split('/')[-1][:-4] + '_stats_' + str(0), new_stats)
+    '''
+    DEVI SALVARE NON COME NPZ MA COME STRINGA DI BYTES
 
     for layer in range(1, layers):
-        print("LAYER", layer)
-
         # e.g 1 - [1, 3] = [0, -2] --> [0]
         # e.g 5 - [1, 3] = [4, 2]  --> [4, 2]
         layer_wise_statistics = [(layer - x) for x in use_statistics if (layer - x) >= 0]
@@ -96,23 +99,26 @@ with tf.Session() as sess:
         # Create the statistics dataset
         stats = []
         for previous_layer in layer_wise_statistics:
-            layer_stats_dataset = None
-            for file in files:
-                dataset = tf.data.Dataset.from_tensor_slices(np.load(os.path.join(stats_folder, exp_name)
-                                                                                 + '/' + file.split('/')[-1][:-4]
-                                                                                 + '_stats_' + str(previous_layer)
-                                                                                 + '.npy'))
-                if layer_stats_dataset is None:
-                    layer_stats_dataset = dataset
-                else:
-                    layer_stats_dataset = layer_stats_dataset.concatenate(dataset)
+            dataset = tf.data.Dataset.from_tensor_slices(files)
+            dataset = dataset.flat_map(
+                lambda filename: (
+                     tf.data.Dataset.from_tensor_slices(
+                      tf.reshape(
+                         tf.decode_raw(tf.read_file(filename), out_type=tf.float64), [-1, A, C+1]))
+                ))
+            print(dataset)
 
-            stats.append(layer_stats_dataset)
+            stats.append(dataset)
 
         stats_dataset = tf.data.Dataset.zip(tuple(stats))
         stats_dataset = stats_dataset.map(lambda examples: merge_statistics(examples, L, C+1))
         batch_statistics = stats_dataset.batch(batch_size=batch_size)
+        print(batch_statistics)
+        
+        #batch_dataset = batch_dataset.prefetch(batch_size)
+        #batch_statistics = batch_statistics.prefetch(batch_size)
 
+        print('LAYER', layer)
         vs = VStructure(C, C, K, L, A, current_layer=layer)
         vs.train(batch_dataset, batch_statistics, sess, max_epochs=max_epochs, threshold=threshold)
 
@@ -128,7 +134,7 @@ with tf.Session() as sess:
 
             print('STATISTICS...')
             # Compute the statistics
-            new_stats = compute_statistics(inferred_states, file, A, C)
+            new_stats = compute_statistics(inferred_states[0], file, A, C)
 
             np.save(os.path.join(stats_folder, exp_name) + '/' + file.split('/')[-1] + '_stats_' + str(layer), new_stats)
 

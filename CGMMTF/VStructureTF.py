@@ -2,7 +2,7 @@ from __future__ import absolute_import, division, print_function
 import time
 import numpy as np
 import tensorflow as tf
-
+from tensorflow.python.client import timeline
 
 def current_milli_time():
     return int(round(time.time() * 1000))
@@ -94,6 +94,7 @@ class VStructure:
         broadcastable_layerS = tf.expand_dims(self.layerS, 1)  # --> L x 1
 
         tmp2 = tf.reshape(tf.multiply(broadcastable_layerS, self.arcS), [1, self.L, self.A, 1])    # --> 1 x L x A x 1
+        
         div_neighb = tf.reshape(neighbDim, [batch_size, 1, self.A, 1])                             # --> ? x 1 x A x 1
 
         posterior_estimate = tf.divide(tf.multiply(tmp, tmp2), div_neighb)                         # --> ? x L x A x C
@@ -249,7 +250,10 @@ class VStructure:
         next_element = iterator.get_next()
 
         sess.run(tf.global_variables_initializer())
-
+      
+        #options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+        #run_metadata = tf.RunMetadata()
+        
         while current_epoch < max_epochs and delta > threshold:
 
             sess.run(iterator.initializer)
@@ -260,7 +264,7 @@ class VStructure:
             while True:
                 try:
                     batch, stats = sess.run(next_element)
-
+                    print(batch.shape, stats.shape)
                     '''
                     print(sess.run(
                         [self.likelihood1, self.likelihood2, self.likelihood3, self.likelihood4],
@@ -274,14 +278,15 @@ class VStructure:
                          self.update_arcS_num, self.update_arcS_den,
                          self.update_transition_num, self.update_transition_den,
                          self.update_emission_num, self.update_emission_den],
-                        feed_dict={self.labels: batch, self.stats: stats})
+                        feed_dict={self.labels: batch, self.stats: stats}#,
+                        #options=options,
+                        #run_metadata=run_metadata
+                    )
 
-                    '''
-                    print(sess.run(
-                        [self.debug],
-                        feed_dict={self.labels: batch, self.stats: stats}))
-                    '''
-
+                    #fetched_timeline = timeline.Timeline(run_metadata.step_stats)
+                    #chrome_trace = fetched_timeline.generate_chrome_trace_format()
+                    #with open('timeline_02_step_%d.json' % current_epoch, 'w') as f:
+                    #    f.write(chrome_trace)
                 except tf.errors.OutOfRangeError:
                     break
 

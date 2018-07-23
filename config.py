@@ -6,5 +6,5 @@ use_statistics = [1]
 layers = 8  # How many layers you will train
 
 threshold  = 0.
-max_epochs = 0
-batch_size = 100000
+max_epochs = 30
+batch_size = 1000000000
