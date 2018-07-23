@@ -1,11 +1,18 @@
 from __future__ import absolute_import, division, print_function
 from CGMMTF.TrainingUtilities import *
+import sys
 
 # Load hyperparams and other constants
 from config import C, layers, use_statistics, max_epochs, threshold, batch_size
 
 # ----------------------- Dataset creation  ----------------------- #
-files = ['Images_Tasks/images/img1.png']#, 'Images_Tasks/images/img2.png']
+files = ['Images_Tasks/images/img1.png', 'Images_Tasks/images/img2.png']
+
+def load_stats(filename):
+    a = tf.data.Dataset.from_tensor_slices(
+        tf.reshape(
+            tf.decode_raw(tf.read_file(filename), out_type=tf.float64), [-1, A, C + 1]))
+    return a
 
 def create_dataset(files, batch_size):
     # Take a dataset of files, create a 1-D tensor for each image, create a Dataset from such tensor, and then concatenate
@@ -25,6 +32,7 @@ batch_dataset = create_dataset(files, batch_size)
 
 # Define a function that, given each image, constructs the statistics' tensor of shape (N, A, C)
 def compute_statistics(inferred_states, file, A, C):
+    print('TO BE IMPLEMENTED')
     return np.ones(shape=(len(inferred_states), A, C+1))
 
 
@@ -60,7 +68,7 @@ variables_to_save = []
 #with tf.Session(config=tf_config) as sess:
 with tf.Session() as sess:
     print("LAYER 0")
-    '''    
+    '''
     mm = MultinomialMixture(C, K)
     mm.train(batch_dataset, sess, max_epochs=max_epochs, threshold=0., debug=False)
 
@@ -85,38 +93,32 @@ with tf.Session() as sess:
         if not os.path.exists(os.path.join(stats_folder, exp_name)):
             os.makedirs(os.path.join(stats_folder, exp_name))
 
-        np.save(os.path.join(stats_folder, exp_name) + '/' + file.split('/')[-1][:-4] + '_stats_' + str(0), new_stats)
+        with open(os.path.join(stats_folder, exp_name) + '/' + file.split('/')[-1][:-4] + '_stats_' + str(0) + '.txt',
+                  'wb') as f:
+            f.write(new_stats.tostring())
     '''
-    DEVI SALVARE NON COME NPZ MA COME STRINGA DI BYTES
-
     for layer in range(1, layers):
         # e.g 1 - [1, 3] = [0, -2] --> [0]
         # e.g 5 - [1, 3] = [4, 2]  --> [4, 2]
         layer_wise_statistics = [(layer - x) for x in use_statistics if (layer - x) >= 0]
 
         L = len(layer_wise_statistics)
-
         # Create the statistics dataset
         stats = []
         for previous_layer in layer_wise_statistics:
-            dataset = tf.data.Dataset.from_tensor_slices(files)
-            dataset = dataset.flat_map(
-                lambda filename: (
-                     tf.data.Dataset.from_tensor_slices(
-                      tf.reshape(
-                         tf.decode_raw(tf.read_file(filename), out_type=tf.float64), [-1, A, C+1]))
-                ))
-            print(dataset)
-
+            stats_files = [
+                os.path.join(stats_folder, exp_name) + '/' + file.split('/')[-1][:-4] + '_stats_' + str(previous_layer)
+                + '.txt' for file in files]
+            dataset = tf.data.Dataset.from_tensor_slices(stats_files)
+            dataset = dataset.flat_map(lambda filename: load_stats(filename))
             stats.append(dataset)
 
         stats_dataset = tf.data.Dataset.zip(tuple(stats))
         stats_dataset = stats_dataset.map(lambda examples: merge_statistics(examples, L, C+1))
         batch_statistics = stats_dataset.batch(batch_size=batch_size)
-        print(batch_statistics)
-        
-        #batch_dataset = batch_dataset.prefetch(batch_size)
-        #batch_statistics = batch_statistics.prefetch(batch_size)
+
+        batch_dataset = batch_dataset.prefetch(batch_size)
+        batch_statistics = batch_statistics.prefetch(batch_size)
 
         print('LAYER', layer)
         vs = VStructure(C, C, K, L, A, current_layer=layer)
