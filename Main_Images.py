@@ -138,7 +138,10 @@ with tf.Session() as sess:
             # Compute the statistics
             new_stats = compute_statistics(inferred_states[0], file, A, C)
 
-            np.save(os.path.join(stats_folder, exp_name) + '/' + file.split('/')[-1] + '_stats_' + str(layer), new_stats)
+            with open(
+                    os.path.join(stats_folder, exp_name) + '/' + file.split('/')[-1][:-4] + '_stats_' + str(0) + '.txt',
+                    'wb') as f:
+                f.write(new_stats.tostring())
 
         if not os.path.exists(checkpoint_folder):
             os.makedirs(checkpoint_folder)
