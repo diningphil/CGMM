@@ -79,7 +79,7 @@ opts = tf.GPUOptions(allow_growth = True)
 #with tf.Session(config=tf_config) as sess:
 with tf.Session(config=tf.ConfigProto(log_device_placement=True, gpu_options=opts)) as sess:
     print("LAYER 0")
-    '''
+    #'''
     mm = MultinomialMixture(C, K)
     mm.train(batch_dataset, sess, max_epochs=max_epochs, threshold=0., debug=False)
 
@@ -96,10 +96,10 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=True, gpu_options=opt
 
         print('STATISTICS...')
         # Compute the statistics and save them
-        compute_statistics(inferred_states[0], file, A, C)
+        compute_statistics(inferred_states, file, A, C)
 
 
-    '''
+    #'''
     for layer in range(1, layers):
         # e.g 1 - [1, 3] = [0, -2] --> [0]
         # e.g 5 - [1, 3] = [4, 2]  --> [4, 2]
