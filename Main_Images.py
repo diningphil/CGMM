@@ -75,10 +75,9 @@ exp_name = 'prova'  # save the model with this name
 
 # ------------------------------- Incrementally builds the network ------------------------------- #
 variables_to_save = []
-#tf_config = tf.ConfigProto()
-#tf_config.gpu_options.allow_growth = True
+opts = tf.GPUOptions(allow_growth = True)
 #with tf.Session(config=tf_config) as sess:
-with tf.Session() as sess:
+with tf.Session(config=tf.ConfigProto(log_device_placement=True, gpu_options=opts)) as sess:
     print("LAYER 0")
     '''
     mm = MultinomialMixture(C, K)
@@ -140,12 +139,7 @@ with tf.Session() as sess:
 
             print('STATISTICS...')
             # Compute the statistics
-            new_stats = compute_statistics(inferred_states[0], file, A, C)
-
-            with open(
-                    os.path.join(stats_folder, exp_name) + '/' + file.split('/')[-1][:-4] + '_stats_' + str(0) + '.txt',
-                    'wb') as f:
-                f.write(new_stats.tostring())
+            compute_statistics(inferred_states[0], file, A, C)
 
         if not os.path.exists(checkpoint_folder):
             os.makedirs(checkpoint_folder)

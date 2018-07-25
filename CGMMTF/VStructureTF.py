@@ -245,9 +245,10 @@ class VStructure:
         old_likelihood = - np.inf
         delta = np.inf
 
-        dataset = tf.data.Dataset.zip((batch_dataset, batch_statistics))
-        iterator = dataset.make_initializable_iterator()
-        next_element = iterator.get_next()
+        data_iterator = batch_dataset.make_initializable_iterator()
+        data_next_element = data_iterator.get_next()
+        stats_iterator = batch_statistics.make_initializable_iterator()
+        stats_next_element = stats_iterator.get_next()
 
         sess.run(tf.global_variables_initializer())
       
@@ -256,14 +257,13 @@ class VStructure:
         
         while current_epoch < max_epochs and delta > threshold:
 
-            sess.run(iterator.initializer)
+            sess.run([data_iterator.initializer, stats_iterator.initializer])
 
             # Reinitialize the likelihood
             sess.run([self.initializing_likelihood_accumulators])
-
             while True:
                 try:
-                    batch, stats = sess.run(next_element)
+                    batch, stats = sess.run([data_next_element, stats_next_element])
                     print(batch.shape, stats.shape)
                     '''
                     print(sess.run(
