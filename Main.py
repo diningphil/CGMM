@@ -22,6 +22,7 @@ max_epochs = 30
 
 batch_size = 2000
 
+
 '''
 # WARNING: if you reuse the statistics, make sure the order of the vertexes is the same
 # do NOT re-shuffle the dstatisticheataset if you want to keep using them
@@ -31,13 +32,11 @@ save_name = 'first_experiment'
 statistics_name = save_name + '_statistiche'
 unigram_inference_name_train = save_name + '_unigrams_train'
 unigram_inference_name_valid = save_name + '_unigrams_valid'
-
 statistics_inference_name = save_name + '_statistiche_inferenza'
 
 # Training and inference phase
 incremental_training(C, K, A, use_statistics, adjacency_lists, target_dataset.batch(batch_size), layers, statistics_name,
                          threshold=0, max_epochs=max_epochs, batch_size=2000, save_name=save_name)
-
 
 # Now recreate the dataset and the computation graph, because incremental_training resets the graph at the end
 # (after saving the model)

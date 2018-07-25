@@ -2,7 +2,7 @@ from __future__ import absolute_import, division, print_function
 from CGMMTF.TrainingUtilities import *
 import sys
 
-# Load hyperparams and other constants
+# Load hyper-params and other constants
 from config import C, layers, use_statistics, max_epochs, threshold, batch_size
 
 # ----------------------- Dataset creation  ----------------------- #
@@ -30,10 +30,22 @@ def create_dataset(files, batch_size):
 
 batch_dataset = create_dataset(files, batch_size)
 
+
 # Define a function that, given each image, constructs the statistics' tensor of shape (N, A, C)
 def compute_statistics(inferred_states, file, A, C):
     print('TO BE IMPLEMENTED')
-    return np.ones(shape=(len(inferred_states), A, C+1))
+    # TODO it should not be memory intensive. Save portions of them as you go
+    new_stats = np.full(shape=(len(inferred_states), A, C+1), fill_value=3.)
+
+    if not os.path.exists(stats_folder):
+        os.makedirs(stats_folder)
+
+    if not os.path.exists(os.path.join(stats_folder, exp_name)):
+        os.makedirs(os.path.join(stats_folder, exp_name))
+
+    with open(os.path.join(stats_folder, exp_name) + '/' + file.split('/')[-1][:-4] + '_stats_' + str(0) + '.txt',
+              'wb') as f:
+        f.write(new_stats.tostring())
 
 
 def merge_statistics(examples, L, C2):
@@ -84,18 +96,10 @@ with tf.Session() as sess:
         inferred_states = mm.perform_inference(file_dataset, sess)
 
         print('STATISTICS...')
-        # Compute the statistics
-        new_stats = compute_statistics(inferred_states[0], file, A, C)
+        # Compute the statistics and save them
+        compute_statistics(inferred_states[0], file, A, C)
 
-        if not os.path.exists(stats_folder):
-            os.makedirs(stats_folder)
 
-        if not os.path.exists(os.path.join(stats_folder, exp_name)):
-            os.makedirs(os.path.join(stats_folder, exp_name))
-
-        with open(os.path.join(stats_folder, exp_name) + '/' + file.split('/')[-1][:-4] + '_stats_' + str(0) + '.txt',
-                  'wb') as f:
-            f.write(new_stats.tostring())
     '''
     for layer in range(1, layers):
         # e.g 1 - [1, 3] = [0, -2] --> [0]
