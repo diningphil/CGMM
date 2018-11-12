@@ -1,5 +1,5 @@
-from CGMM.TrainingUtilities import *
-from CGMM.DatasetUtilities import *
+from utils.TrainingUtilities import *
+from utils.DatasetUtilities import *
 from TreeTasks.Inex.InexParser import bu_parse
 
 INEX = '2005'
