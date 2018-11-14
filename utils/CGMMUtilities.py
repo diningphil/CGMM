@@ -61,7 +61,11 @@ def _aggregate_states(C, adj_lists, sizes, states, statistics=None, aggregate_po
 
                 freq_bigram = np.divide(freq_bigram, size)  # Normalize
 
-        freq_aggregated.append(np.concatenate((freq_unigram, freq_bigram)))
+        if unibigram:
+            freq_aggregated.append(np.concatenate((freq_unigram, freq_bigram)))
+        else:
+            freq_aggregated.append(freq_unigram)
+            
         curr_size += size
 
     return np.array(freq_aggregated)
