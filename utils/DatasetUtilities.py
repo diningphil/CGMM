@@ -65,7 +65,8 @@ def save_tensor(tensor, exp_name, folder_name, filename, layer_no):
     np.save(filepath, tensor, allow_pickle=False)
 
 
-def save_statistics(adjacency_lists, inferred_states, A, C, exp_name, folder_name, filename, layer_no):
+def save_statistics(cgmm_layer, adjacency_lists, inferred_states, exp_name, folder_name, filename, layer_no,
+                    add_self_arc=False):
     '''
     :param adjacency_lists:
     :param inferred_states:
@@ -73,23 +74,18 @@ def save_statistics(adjacency_lists, inferred_states, A, C, exp_name, folder_nam
     :param C:
     :param filename:
     :param layer_no:
+    :param radius:
     :return:
     '''
 
     # TODO YOU CAN ALSO ARRANGE EACH GRAPH INTO A NPZ AND LOAD THEM SEPARATELY. THEN YOU JUST DO SOME COMPUTATION
     # WHEN BATCHING STATISTICS
 
-    # Compute statistics
-    statistics = np.zeros((len(adjacency_lists), A, C), dtype=np.int64)
-
-    for u in range(0, len(adjacency_lists)):
-        incident_nodes = adjacency_lists[u]
-        for u2, a in incident_nodes:
-            node_state = inferred_states[u2]
-            statistics[u, a, node_state] += 1
+    statistics = cgmm_layer.compute_statistics(adjacency_lists, inferred_states, add_self_arc)
 
     save_tensor(statistics, exp_name, folder_name, filename, layer_no)
 
+    return statistics
 
 def load_unigrams_or_statistics(exp_name, folder_name, filename, layers):
     '''

@@ -1,4 +1,4 @@
-from utils.TrainingUtilities import *
+from utils.CGMMUtilities import *
 from TreeTasks.Inex.InexParser import bu_parse
 
 INEX = '2005'

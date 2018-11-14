@@ -1,4 +1,4 @@
-from utils.TrainingUtilities import *
+from utils.CGMMUtilities import *
 
 task_name = 'MUTAG'
 

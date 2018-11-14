@@ -1,8 +1,9 @@
 import torch
 import numpy as np
 
+
 class CGMM_Layer(torch.nn.Module):
-    def __init__(self, k, c, c2=None, l=None, a=None, current_layer=None):
+    def __init__(self, k, c, a, c2=None, l=None, radius=1):
         """
         utils Layer
         :param k: dimension of output's alphabet, which goes from 0 to K-1
@@ -10,25 +11,30 @@ class CGMM_Layer(torch.nn.Module):
         :param c2: the number of states of the neighbours
         :param l: number of previous layers to consider. You must pass the appropriate number of statistics at training
         :param a: dimension of edges' alphabet, which goes from 0 to A-1
-        :param current_layer: used to save and restore the model
         """
         super().__init__()
 
         # For comparison w.r.t Numpy implementation
         # np.random.seed(seed=10)
 
-
         self.is_layer_0 = True
-        if c2 is not None or l is not None or a is not None:
-            assert c2 is not None and l is not None and a is not None, 'You should specify both C2, L and A'
+        if c2 is not None or l is not None:
+            assert c2 is not None and l is not None, 'You should specify both C2, L and A'
             self.is_layer_0 = False
 
         self.eps = 1e-8  # Laplace smoothing
         self.C = c
         self.K = k
+        if radius == 1:
+            self.A = a + 1  # may consider a special case of the recurrent arc
+        elif radius == 2:
+            self.A = a * 2 + 1
+        else:
+            raise NotImplementedError('Radius can be 1 or 2')
+        self.radius = radius
+
         if not self.is_layer_0:
             self.C2 = c2
-            self.A = a
             self.L = l
 
         # Initialisation of the model's parameters.
@@ -82,6 +88,80 @@ class CGMM_Layer(torch.nn.Module):
 
         self.init_accumulators()
 
+    def build_dict(self):
+        if self.is_layer_0:
+            return {'is_layer_0': self.is_layer_0,
+                    'C': self.C,
+                    'K': self.K,
+                    # remove the special arc for self-recurrency with prev layers
+                    # it will be added again when loading the model
+                    'A': (self.A - 1) // self.radius,  # can be only one or 2
+                    'radius': self.radius,
+                    'prior': self.prior.numpy(),
+                    'emission': self.emission.numpy(),
+                    }
+        else:
+            return {'is_layer_0': self.is_layer_0,
+                    'C': self.C,
+                    'K': self.K,
+                    'C2': self.C2,
+                    # remove the special arc for self-recurrency with prev layers
+                    # it will be added again when loading the model
+                    'A': (self.A - 1) // self.radius,  # can be only one or 2
+                    'radius': self.radius,
+                    'L': self.L,
+                    'emission': self.emission.numpy(),
+                    'transition': self.transition.numpy(),
+                    'layerS': self.layerS.numpy(),
+                    'arcS': self.arcS.numpy()
+
+                    }
+
+    @staticmethod
+    def build_architecture(ckpt):
+        layers = len(ckpt.keys())
+        architecture = []
+
+        for layer in range(layers):
+            if layer == 0:
+                cgmm_layer = CGMM_Layer(ckpt[layer]['K'], ckpt[layer]['C'],
+                                        ckpt[layer]['A'], radius=ckpt[layer]['radius'])
+                cgmm_layer.prior = torch.from_numpy(ckpt[layer]['prior'])
+                cgmm_layer.emission = torch.from_numpy(ckpt[layer]['emission'])
+            else:
+                cgmm_layer = CGMM_Layer(ckpt[layer]['K'], ckpt[layer]['C'], ckpt[layer]['A'], ckpt[layer]['C2'],
+                                        ckpt[layer]['L'], radius=ckpt[layer]['radius'])
+                cgmm_layer.arcS = torch.from_numpy(ckpt[layer]['arcS'])
+                cgmm_layer.layerS = torch.from_numpy(ckpt[layer]['layerS'])
+                cgmm_layer.emission = torch.from_numpy(ckpt[layer]['emission'])
+                cgmm_layer.transition = torch.from_numpy(ckpt[layer]['transition'])
+
+            architecture.append(cgmm_layer)
+
+        return architecture
+
+    def compute_statistics(self, adjacency_lists, inferred_states, add_self_arc=False):
+        # Compute statistics
+        statistics = np.zeros((len(adjacency_lists), self.A, self.C), dtype=np.int64)
+
+        for u in range(0, len(adjacency_lists)):
+            incident_nodes = adjacency_lists[u]
+
+            if add_self_arc:
+                statistics[u, self.A-1, inferred_states[u]] += 1
+
+            for u2, a in incident_nodes:
+                node_state = inferred_states[u2]
+                statistics[u, a, node_state] += 1
+
+                if self.radius == 2:
+                    # I have special arcs for this!
+                    # looking for the neighbours of my neighbours
+                    for u3, a2 in adjacency_lists[u2]:
+                        node_state2 = inferred_states[u3]
+                        statistics[u3, a2*2, node_state2] += 1
+
+        return statistics
 
     def init_accumulators(self):
 
@@ -104,13 +184,9 @@ class CGMM_Layer(torch.nn.Module):
             self.transition_numerator = torch.full([self.L, self.A, self.C, self.C2], self.eps)
             self.transition_denominator = torch.full([self.L, self.A, 1, self.C2], self.eps*self.C)
 
-
-
     def _compute_posterior_estimate(self, emission_for_labels, stats):
 
         batch_size = emission_for_labels.size()[0]
-
-
 
         # Compute the neighbourhood dimension for each vertex
         neighbDim = torch.sum(stats[:, 0, :, :], dim=2).float()  # --> ? x A
@@ -132,10 +208,6 @@ class CGMM_Layer(torch.nn.Module):
         div_neighb = torch.reshape(neighbDim, [batch_size, 1, self.A, 1]) # --> ? x 1 x A x 1
 
         tmp_unnorm_posterior_estimate = torch.div(torch.mul(tmp, tmp2), div_neighb)  # --> ? x L x A x C
-
-
-
-
 
         tmp_emission = torch.reshape(emission_for_labels,
                                      [batch_size, 1, 1, self.C])  # --> ? x 1 x 1 x C
@@ -268,19 +340,16 @@ class CGMM_Layer(torch.nn.Module):
         emission_for_labels = torch.index_select(self.emission, dim=0, index=labels)  # ?xC
 
         if self.is_layer_0:
-            numerator = torch.mul(emission_for_labels, torch.reshape(self.prior, shape=[1, self.C]))  # --> ?xC
-            inferred_states = torch.argmax(numerator, dim=1)
+            posterior = torch.mul(emission_for_labels, torch.reshape(self.prior, shape=[1, self.C]))  # --> ?xC
 
-            return inferred_states
-
+            # Use posterior is used to smooth a bit the fingerprints. For example, argmax may choose 1 state even if
+            # it has probability 0.51 (in the case of C=2), while I would like to consider the entire distribution
+            return posterior
         else:
             posterior_estimate, _, _, _ = self._compute_posterior_estimate(emission_for_labels, stats)
             posterior_ui = torch.sum(posterior_estimate, dim=[1, 2])  # --> ? x C
 
-            # NOTE: this is exactly the same formula as in Layer 0, it simply changes how you compute the posterior
-            inferred_states = torch.argmax(posterior_ui, dim=1).int()
-
-            return inferred_states
+            return posterior_ui
 
     def EM_step(self, labels, stats=None):
         if self.is_layer_0:
