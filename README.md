@@ -10,4 +10,5 @@ The library includes data and scripts to reproduce the tree/graph classification
 
 This research software is provided as is. If you happen to use or modify this code, please remember to cite the foundation papers:
 
-*Bacciu Davide, Errica Federico, Micheli Alessio: Contextual Graph Markov Model: A Deep and Generative Approach to Graph Processing. Proceedings of the 35th International Conference on Machine Learning. Vol. 80. pp. 294-303.*
+[*Bacciu Davide, Errica Federico, Micheli Alessio: Contextual Graph Markov Model: A Deep and Generative Approach to Graph Processing. Proceedings of the 35th International Conference on Machine Learning. Vol. 80. pp. 294-303.*
+](http://proceedings.mlr.press/v80/bacciu18a.html)
