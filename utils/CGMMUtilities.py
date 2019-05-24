@@ -4,7 +4,7 @@ from sklearn import svm
 from torch.utils.data import DataLoader
 
 from utils.DatasetUtilities import *
-from CGMM_Layer import CGMM_Layer
+from models.CGMM.CGMM_Layer import CGMM_Layer
 
 checkpoint_folder = './checkpoints'
 
