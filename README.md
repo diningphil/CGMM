@@ -16,3 +16,9 @@ This research software is provided as is. If you happen to use or modify this co
 ### 24/5/19 UPDATE
 We provide an extended and refactored version of CGMM, implemented in Pytorch. There are additional experimental routines to try some common graph classification tasks.
 For INEX tasks, please refer to the original numpy branch.
+
+### Run Experiments
+
+To replicate our experiments, first modify the *Nested_Configs.py* file, then execute:
+`python Nested_CV_OnlyUnigrams.py && python Nested_CV_OnlyClassifier.py`
+This script will first pre-compute all possible unigram and unibigram representations for all configurations to save time, and then it will train classifiers on top of the unsupervised representations.
