@@ -1,0 +1,58 @@
+device:
+  - cpu
+model:
+  - CGMMPPI
+batch_size:
+  - 20
+l_prec:
+  - [1]
+max_layers:
+  - 5
+  - 10
+  - 20
+A:
+  - 1
+C:
+  - 5
+  - 10
+  - 20
+node_type:
+  - continuous
+unibigram:
+  - False
+aggregation:
+  - mean  # Not used in PPI!
+infer_with_posterior:
+  - False
+max_epochs:
+  - 10
+threshold:
+  - 0.
+self_arc:
+  - False
+learning_rate:
+  - 0.01
+  - 0.001
+l2:
+  - 0.0000
+  - 0.00001
+classifier_epochs:
+  - 5000
+hidden_units:
+  - 128
+#  - 256
+#  - 512
+optimizer:
+  - Adam
+gradient_clipping:
+  - null
+scheduler:
+  - null
+loss:
+  - PPILoss
+early_stopper:
+  -
+    class: Patience
+    args:
+      patience: 500
+      use_loss: False

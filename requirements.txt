@@ -1,7 +1,7 @@
-numpy
+networkx
+requests
 torch
-torchvision
-matplotlib
-pandas
-seaborn
-sklearn
+torch_geometric
+torch_scatter
+torch_sparse
+torch_cluster
