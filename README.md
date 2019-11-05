@@ -20,8 +20,14 @@ We refactored the whole repository to allow for easy experimentation with increm
 ### 24th of May 2019 UPDATE
 We provide an extended and refactored version of CGMM, implemented in Pytorch. There are additional experimental routines to try some common graph classification tasks. Please refer to the "Paper Version" Release tag for the original code of the paper.
 
-### Run Experiments
+### Create Data Sets
 
-To replicate our experiments, first modify the *Nested_Configs.py* file, then execute:
-`python Nested_CV_OnlyUnigrams.py && python Nested_CV_OnlyClassifier.py`
-This script will first pre-compute all possible unigram and unibigram representations for all configurations to save time, and then it will train classifiers on top of the unsupervised representations.
+We first need to create a data set. Let's try to parse NCI1
+`python PrepareDatasets.py DATA --dataset-name NCI1`
+
+### Replicate Experiments
+
+To replicate our experiments on graph classification, first modify the *config_CGMM.yml* file accordingly (use CGMM as model), then execute:
+`python Launch_Experiments.py --config-file config_CGMM.yml --inner-folds None None --outer-folds 10 --inner-processes [processes to use for internal cross validation] --outer-processes [processes to use for external cross validation] --dataset [DATASET STRING]`
+
+For node classification on PPI, use CGMMPPI in the config file instead of CGMM (to be refactored. In this case, you have to preprocess PPI before running on multiprocessing. You can do this by appending the --debug argument the very first time you try to train on PPI with CGMM).
