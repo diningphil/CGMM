@@ -1,21 +1,10 @@
 from torch.optim import Adam, SGD
-from torch.optim.lr_scheduler import StepLR, ReduceLROnPlateau
 
 from datasets import *
 from datasets.manager import Ppi
-from models.graph_classifiers.DGCNN import DGCNN
 from models.graph_classifiers.CGMM import CGMM, CGMMPPI
-from models.graph_classifiers.DeepMultisets import DeepMultisets
-from models.graph_classifiers.MolecularFingerprint import MolecularFingerprint
-from models.schedulers.ECCScheduler import ECCLR
 from models.utils.EarlyStopper import Patience, GLStopper
-from models.graph_classifiers.GIN import GIN
-from models.graph_classifiers.DiffPool import DiffPool
-from models.graph_classifiers.NN4G import NN4G
-from models.graph_classifiers.ECC import ECC
-from models.graph_classifiers.GraphSAGE import GraphSAGE
-from models.modules import (BinaryClassificationLoss, MulticlassClassificationLoss,
-                            NN4GMulticlassClassificationLoss, DiffPoolMulticlassClassificationLoss, PPILoss)
+from models.modules import (BinaryClassificationLoss, MulticlassClassificationLoss, PPILoss)
 
 from copy import deepcopy
 from .utils import read_config_file
