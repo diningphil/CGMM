@@ -180,10 +180,9 @@ class IncrementalModel:
                     # Infer and produce outputs
                     v_out, e_out, g_out, o_out = new_layer.infer(data_loader, device=device)
 
-                    plt.figure()
-                    sns.heatmap(v_out[0].detach().cpu().numpy())
-                    plt.savefig(f'prova_{depth}.png', dpi=200)
-                    plt.close()
+                    #plt.figure()
+                    #sns.heatmap(v_out[0].detach().cpu().numpy())
+                    ùplt.close()
 
                     # Reorder outputs, which are produced in shuffled order, to the original arrangement of the dataset.
                     v_out, e_out, g_out, o_out = self._reorder_shuffled_objects(v_out, e_out, g_out, o_out, data_loader)
