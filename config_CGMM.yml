@@ -1,15 +1,13 @@
 device:
   - cpu
 model:
-  - CGMMPPI
+  - CGMM
 batch_size:
   - 20
 l_prec:
   - [1]
 max_layers:
-  - 5
-  - 10
-  - 20
+  - 2
 A:
   - 1
 C:
@@ -17,11 +15,11 @@ C:
   - 10
   - 20
 node_type:
-  - continuous
+  - discrete 
 unibigram:
   - False
 aggregation:
-  - mean  # Not used in PPI!
+  - mean  # Not used with CGMMPPI!
 infer_with_posterior:
   - False
 max_epochs:
@@ -49,7 +47,7 @@ gradient_clipping:
 scheduler:
   - null
 loss:
-  - PPILoss
+  - MulticlassClassificationLoss
 early_stopper:
   -
     class: Patience

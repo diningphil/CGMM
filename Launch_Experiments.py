@@ -1,5 +1,4 @@
 import argparse
-from EndToEnd_Evaluation import main as endtoend
 from Incremental_Evaluation import main as incremental
 
 def get_args():

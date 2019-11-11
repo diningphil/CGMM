@@ -60,7 +60,7 @@ class CategoricalEmission:
         :param labels:
         :return: a distribution associated to each layer
         """
-        labels_squeezed = torch.squeeze(labels)
+        labels_squeezed = torch.argmax(torch.squeeze(labels), dim=1).long()
         emission_for_labels = torch.index_select(self.emission_distr, dim=0, index=labels_squeezed)  # ?xC
 
         return emission_for_labels
@@ -68,7 +68,7 @@ class CategoricalEmission:
     def update_accumulators(self, posterior_estimate, labels):
 
         # removes dimensions of size 1 (current is ?x1)
-        labels_squeezed = torch.squeeze(labels)
+        labels_squeezed = torch.argmax(torch.squeeze(labels), dim=1).long()
 
         self.emission_numerator.index_add_(dim=0, source=posterior_estimate, index=labels_squeezed)   # --> K x C
         self.emission_denominator += torch.sum(posterior_estimate, dim=0)  # --> 1 x C
