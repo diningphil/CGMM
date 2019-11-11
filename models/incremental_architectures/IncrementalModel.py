@@ -182,7 +182,7 @@ class IncrementalModel:
 
                     #plt.figure()
                     #sns.heatmap(v_out[0].detach().cpu().numpy())
-                    ùplt.close()
+                    plt.close()
 
                     # Reorder outputs, which are produced in shuffled order, to the original arrangement of the dataset.
                     v_out, e_out, g_out, o_out = self._reorder_shuffled_objects(v_out, e_out, g_out, o_out, data_loader)
