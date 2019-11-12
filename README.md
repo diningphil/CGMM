@@ -27,7 +27,7 @@ We first need to create a data set. Let's try to parse NCI1
 In the config file, specify node_type "discrete", as features are represented as atom types
 
 For social datasets such as IMDB-MULTI:
-python PrepareDatasets.py DATA --dataset-name IMDB-BINARY --use-degree
+`python PrepareDatasets.py DATA --dataset-name IMDB-BINARY --use-degree`
 In the config file, specify node_type "continuous", as the degree should be treated as a continuous value
 
 ### Replicate Experiments
