@@ -24,10 +24,17 @@ We provide an extended and refactored version of CGMM, implemented in Pytorch. T
 
 We first need to create a data set. Let's try to parse NCI1
 `python PrepareDatasets.py DATA --dataset-name NCI1`
+In the config file, specify node_type "discrete", as features are represented as atom types
+
+For social datasets such as IMDB-MULTI:
+python PrepareDatasets.py DATA --dataset-name IMDB-BINARY --use-degree
+In the config file, specify node_type "continuous", as the degree should be treated as a continuous value
 
 ### Replicate Experiments
 
 To replicate our experiments on graph classification, first modify the *config_CGMM.yml* file accordingly (use CGMM as model), then execute:
-`python Launch_Experiments.py --config-file config_CGMM.yml --inner-folds None None --outer-folds 10 --inner-processes [processes to use for internal cross validation] --outer-processes [processes to use for external cross validation] --dataset [DATASET STRING]`
+`python Launch_Experiments.py --config-file config_CGMM.yml --inner-folds None --outer-folds 10 --inner-processes [processes to use for internal cross validation] --outer-processes [processes to use for external cross validation] --dataset [DATASET STRING]`
+
+By default, datasets are created to implement external 10-fold CV for model assessment, i.e. split between train and TEST, and an internal hold-out split of the training set (10% as VALIDATION set for model selection). If you change the data splits, you have to modify the **--inner-folds** and **--outer-folds** arguments accordingly. NOTE: a hold-out technique is associate to **--inner(outer)-folds = None**.
 
 For node classification on PPI, use CGMMPPI in the config file instead of CGMM (to be refactored. In this case, you have to preprocess PPI before running on multiprocessing. You can do this by appending the --debug argument the very first time you try to train on PPI with CGMM).
