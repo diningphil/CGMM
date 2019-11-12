@@ -4,13 +4,10 @@ from datasets import *
 
 
 DATASETS = {
-    'REDDIT-BINARY': RedditBinary,
-    'REDDIT-MULTI-5K': Reddit5K,
     'COLLAB': Collab,
     'IMDB-BINARY': IMDBBinary,
     'IMDB-MULTI': IMDBMulti,
     'NCI1': NCI1,
-    'ENZYMES': Enzymes,
     'PROTEINS': Proteins,
     'DD': DD
 }
@@ -31,7 +28,7 @@ def get_args_dict():
                         default=False, help='use 1 as feature')
     parser.add_argument('--use-degree', dest='use_node_degree', action='store_true',
                         default=False, help='use degree as feature')
-    parser.add_argument('--no-kron', dest='precompute_kron_indices', action='store_false',
+    parser.add_argument('--no-kron', dest='dont_precompute_kron_indices', action='store_false',
                         default=True, help='don\'t precompute kron reductions')
 
     return vars(parser.parse_args())
