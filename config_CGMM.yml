@@ -15,9 +15,9 @@ C:
   - 10
   - 20
 node_type:
-  - discrete 
+  - continuous 
 unibigram:
-  - False
+  - True
 aggregation:
   - mean  # Not used with CGMMPPI!
 infer_with_posterior:
@@ -35,7 +35,7 @@ l2:
   - 0.0000
   - 0.00001
 classifier_epochs:
-  - 5000
+  - 10
 hidden_units:
   - 128
 #  - 256

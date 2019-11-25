@@ -127,7 +127,7 @@ class CGMM(IncrementalLayer):
 
         return v_out, e_out, g_out, statistics
 
-    def infer(self, data_loader, device='cpu'):
+    def infer(self, data_loader, device='cpu', output_v_out=True, output_g_out=True):
 
         self.layer.emission.to(device)
         if not self.layer.is_layer_0:
@@ -156,20 +156,23 @@ class CGMM(IncrementalLayer):
             posterior_batch, l_batch = self.layer.forward(data.x, prev_stats)
             statistics_batch = self._compute_statistics(posterior_batch, data, device)
 
-            unigram = self._compute_unigram(posterior_batch, data.batch, device)
+            node_unigram, graph_unigram = self._compute_unigram(posterior_batch, data.batch, device)
 
             if self.unibigram:
-                bigram = self._compute_bigram(posterior_batch.double(), data.edge_index, data.batch, unigram.shape[0], device)
-                graph_embeddings_batch = torch.cat((unigram, bigram), dim=1)
+                node_bigram, graph_bigram = self._compute_bigram(posterior_batch.double(), data.edge_index, data.batch, graph_unigram.shape[0], device)
+
+                node_embeddings_batch = torch.cat((node_unigram, node_bigram), dim=1)
+                graph_embeddings_batch = torch.cat((graph_unigram, graph_bigram), dim=1)
             else:
-                graph_embeddings_batch = unigram
+                node_embeddings_batch = node_unigram
+                graph_embeddings_batch = graph_unigram
 
             # ------------- Revert back to list of graphs ----------- #
 
             sizes = self._compute_sizes(data.batch, device)
             cum_nodes = 0
             for i, size in enumerate(sizes):
-                v_out.append(posterior_batch[cum_nodes:cum_nodes + size, :])
+                v_out.append(node_embeddings_batch[cum_nodes:cum_nodes + size, :])
                 graph_embeddings.append(torch.unsqueeze(graph_embeddings_batch[i], dim=0))
                 statistics.append(statistics_batch[cum_nodes:cum_nodes + size, :])
                 cum_nodes += size
@@ -254,29 +257,33 @@ class CGMM(IncrementalLayer):
         aggregate = self._get_aggregation_fun()
 
         if self.use_continuous_states:
+            node_embeddings_batch = posteriors
             graph_embeddings_batch = aggregate(posteriors, batch)
         else:
             # todo may avoid one hot with this
             # np.add.at(freq_node_unigram, node_states[curr_node_size:(curr_node_size + size)], 1)
 
             if 'cuda' in device:
-                posterior_batch = self._make_one_hot(posteriors.argmax(dim=1)).cuda()
+                node_embeddings_batch = self._make_one_hot(posteriors.argmax(dim=1)).cuda()
             else:
-                posterior_batch = self._make_one_hot(posteriors.argmax(dim=1))
-            graph_embeddings_batch = aggregate(posterior_batch, batch)
+                node_embeddings_batch = self._make_one_hot(posteriors.argmax(dim=1))
+            graph_embeddings_batch = aggregate(node_embeddings_batch, batch)
 
-        return graph_embeddings_batch
+        return node_embeddings_batch.double(), graph_embeddings_batch.double()
 
     def _compute_bigram(self, posteriors, edge_index, batch, no_graphs, device):
-        
-        bigram_batch = torch.zeros((no_graphs, self.C * self.C), dtype=torch.float64).to(device)
+
+        node_bigram_batch = torch.zeros((posteriors.shape[0], self.C * self.C), dtype=torch.float64).to(device)
+        graph_bigram_batch = torch.zeros((no_graphs, self.C * self.C), dtype=torch.float64).to(device)
 
         if self.use_continuous_states:
             srcs, dsts = edge_index
             for dest, source in zip(dsts, srcs):
                 for i in range(self.C):
                     start, end = i * self.C, i * self.C + self.C
-                    bigram_batch[batch[dest], start:end] += posteriors[source]*posteriors[dest, i]
+
+                    node_bigram_batch[dest, start:end] += posteriors[source]*posteriors[dest, i]
+                    graph_bigram_batch[batch[dest], start:end] += posteriors[source]*posteriors[dest, i]
         else:
             posterior_batch_argmax = posteriors.argmax(dim=1)
 
@@ -286,9 +293,10 @@ class CGMM(IncrementalLayer):
                 state_u = posterior_batch_argmax[dest]
                 state_neighb = posterior_batch_argmax[source]
 
-                bigram_batch[batch[dest], state_u * self.C: state_u * self.C + state_neighb] += 1
+                node_bigram_batch[dest, state_u * self.C: state_u * self.C + state_neighb] += 1
+                graph_bigram_batch[batch[dest], state_u * self.C: state_u * self.C + state_neighb] += 1
         
-        return bigram_batch
+        return node_bigram_batch.double(), graph_bigram_batch.double()
 
     def _compute_sizes(self, batch, device):
         return scatter_add(torch.ones(len(batch), dtype=torch.int).to(device), batch)
@@ -321,9 +329,6 @@ class CGMMPPI(CGMM):
             dim_features = self.C*self.depth if not self.unibigram else self.C*self.C2*self.depth
 
             dim_features = dim_features + self.dim_features
-            #print(self.dim_features, dim_features)
-
-            # torch.manual_seed(0)
 
             # Assume all dataset in one batch
             for data in train_loader:
