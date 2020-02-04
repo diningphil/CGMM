@@ -293,8 +293,8 @@ class CGMM(IncrementalLayer):
                 state_u = posterior_batch_argmax[dest]
                 state_neighb = posterior_batch_argmax[source]
 
-                node_bigram_batch[dest, state_u * self.C: state_u * self.C + state_neighb] += 1
-                graph_bigram_batch[batch[dest], state_u * self.C: state_u * self.C + state_neighb] += 1
+                node_bigram_batch[dest, state_u * self.C + state_neighb] += 1
+                graph_bigram_batch[batch[dest], state_u * self.C + state_neighb] += 1
         
         return node_bigram_batch.double(), graph_bigram_batch.double()
 
@@ -555,6 +555,7 @@ class CGMMLayer:
         # This does not alter learning: the numerator can still be zero
 
         neighbDim = torch.where(neighbDim == 0., torch.tensor([1.]).to(self.device), neighbDim)
+        neighbDim[:, :, -1] = 1 
 
         broadcastable_transition = torch.unsqueeze(self.transition, 0)  # --> 1 x L x A x C x C2
         broadcastable_stats = torch.unsqueeze(stats, 3).double()  # --> ? x L x A x 1 x C2
@@ -772,8 +773,8 @@ class CGMMGraphClassifier(NetWrapper):
                 output = (output,)
 
             loss, acc = self.loss_fun(data.y, *output)
-            loss_all += loss.item()
-            acc_all += acc.item()
+            loss_all += loss.item() * data.num_graphs
+            acc_all += acc.item() * data.num_graphs
 
         return acc_all / len(loader.dataset), loss_all / len(loader.dataset)
 

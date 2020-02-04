@@ -37,4 +37,4 @@ To replicate our experiments on graph classification, first modify the *config_C
 
 By default, datasets are created to implement external 10-fold CV for model assessment, i.e. split between train and TEST, and an internal hold-out split of the training set (10% as VALIDATION set for model selection). If you change the data splits, you have to modify the **--inner-folds** and **--outer-folds** arguments accordingly. NOTE: a hold-out technique is associate to **--inner(outer)-folds = None**.
 
-For node classification on PPI, use CGMMPPI in the config file instead of CGMM (to be refactored. In this case, you have to preprocess PPI before running on multiprocessing. You can do this by appending the --debug argument the very first time you try to train on PPI with CGMM).
+For node classification on PPI, use CGMMPPI in the config file instead of CGMM (to be refactored. In this case, you have to preprocess PPI before running on multiprocessing. You can do this by appending the `--debug` argument the very first time you try to train on PPI with CGMM).

@@ -3,25 +3,23 @@ device:
 model:
   - CGMM
 batch_size:
-  - 20
+  - 2000
 l_prec:
   - [1]
 max_layers:
-  - 2
+  - 3
 A:
   - 1
 C:
-  - 5
-  - 10
   - 20
 node_type:
-  - continuous 
+  - discrete 
 unibigram:
-  - True
+  - False
 aggregation:
   - mean  # Not used with CGMMPPI!
 infer_with_posterior:
-  - False
+  - True
 max_epochs:
   - 10
 threshold:
@@ -30,12 +28,10 @@ self_arc:
   - False
 learning_rate:
   - 0.01
-  - 0.001
 l2:
-  - 0.0000
   - 0.00001
 classifier_epochs:
-  - 10
+  - 1000
 hidden_units:
   - 128
 #  - 256

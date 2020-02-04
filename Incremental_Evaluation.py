@@ -10,7 +10,7 @@ from evaluation.risk_assessment.K_Fold_Assessment import KFoldAssessment
 from experiments.IncrementalExperiment import IncrementalExperiment
 
 
-def main(config_file, dataset_name,
+def main(config_file, dataset_name, result_folder,
          outer_k, outer_processes, inner_k, inner_processes, debug=False):
 
     # Needed to avoid thread spawning, conflicts with multi-processing. You may set a number > 1 but take into account
@@ -22,7 +22,7 @@ def main(config_file, dataset_name,
     model_configurations = Grid(config_file, dataset_name)
     model_configuration = Config(**model_configurations[0])
 
-    exp_path = os.path.join('RESULTS', f'{model_configuration.exp_name}_assessment')
+    exp_path = os.path.join(result_folder, f'{model_configuration.exp_name}_assessment')
 
     if inner_k is not None:
         model_selector = KFoldSelection(inner_k, max_processes=inner_processes)

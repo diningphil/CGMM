@@ -39,7 +39,7 @@ if __name__ == "__main__":
     for dataset_name in datasets:
         try:
             if experiment == 'incremental':
-                incremental(config_file, dataset_name,
+                incremental(config_file, dataset_name, args.result_folder,
                             outer_k=outer_k, outer_processes=int(args.outer_processes),
                             inner_k=inner_k, inner_processes=int(args.inner_processes),
                             debug=args.debug)

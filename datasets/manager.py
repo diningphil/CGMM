@@ -25,8 +25,7 @@ from .tu_utils import parse_tu_data, create_graph_from_tu_data
 
 class GraphDatasetManager:
     def __init__(self, kfold_class=StratifiedKFold, outer_k=10, inner_k=None, seed=42, holdout_test_size=0.1,
-                 use_node_degree=False, use_node_attrs=False, use_one=False, precompute_kron_indices=False,
-                 max_reductions=10, DATA_DIR='DATA'):
+                 use_node_degree=False, use_node_attrs=False, use_one=False, DATA_DIR='DATA'):
 
         self.root_dir = Path(DATA_DIR) / self.name
         self.kfold_class = kfold_class
@@ -34,14 +33,15 @@ class GraphDatasetManager:
         self.use_node_degree = use_node_degree
         self.use_node_attrs = use_node_attrs
         self.use_one = use_one
-        self.precompute_kron_indices = precompute_kron_indices
-        self.KRON_REDUCTIONS = max_reductions  # will compute indices for 10 pooling layers --> approximately 1000 nodes
 
-        self.outer_k = outer_k
-        assert (outer_k is not None and outer_k > 0) or outer_k is None
-
-        self.inner_k = inner_k
-        assert (inner_k is not None and inner_k > 0) or inner_k is None
+        if outer_k is None or outer_k == 'None':
+            self.outer_k = None
+        else:
+            int(outer_k)
+        if inner_k is None or inner_k == 'None':    
+            self.inner_k = None
+        else:
+            self.inner_k = int(inner_k)
 
         self.seed = seed
 
@@ -240,11 +240,6 @@ class TUDatasetManager(GraphDatasetManager):
             graph_data = {k: v[i] for (k, v) in graphs_data.items()}
             G = create_graph_from_tu_data(graph_data, target, num_node_labels, num_edge_labels)
 
-            if self.precompute_kron_indices:
-                laplacians, v_plus_list = self._precompute_kron_indices(G)
-                G.laplacians = laplacians
-                G.v_plus = v_plus_list
-
             if G.number_of_nodes() > 1 and G.number_of_edges() > 0:
                 data = self._to_data(G)
                 dataset.append(data)
@@ -274,77 +269,6 @@ class TUDatasetManager(GraphDatasetManager):
         data = Data(**datadict)
 
         return data
-
-    def _precompute_kron_indices(self, G):
-        laplacians = []  # laplacian matrices (represented as 1D vectors)
-        v_plus_list = []  # reduction matrices
-
-        X = G.get_x(self.use_node_attrs, self.use_node_degree, self.use_one)
-        lap = torch.Tensor(normalized_laplacian_matrix(G).todense())  # I - D^{-1/2}AD^{-1/2}
-        # print(X.shape, lap.shape)
-
-        laplacians.append(lap)
-
-        for _ in range(self.KRON_REDUCTIONS):
-            if lap.shape[0] == 1:  # Can't reduce further:
-                v_plus, lap = torch.tensor([1]), torch.eye(1)
-                # print(lap.shape)
-            else:
-                v_plus, lap = self._vertex_decimation(lap)
-                # print(lap.shape)
-                # print(lap)
-
-            laplacians.append(lap.clone())
-            v_plus_list.append(v_plus.clone().long())
-
-        return laplacians, v_plus_list
-
-    # For the Perron–Frobenius theorem, if A is > 0 for all ij then the leading eigenvector is > 0
-    # A Laplacian matrix is symmetric (=> diagonalizable)
-    # and dominant eigenvalue (true in most cases? can we enforce it?)
-    # => we have sufficient conditions for power method to converge
-    def _power_iteration(self, A, num_simulations=30):
-        # Ideally choose a random vector
-        # To decrease the chance that our vector
-        # Is orthogonal to the eigenvector
-        b_k = torch.rand(A.shape[1]).unsqueeze(dim=1) * 0.5 - 1
-
-        for _ in range(num_simulations):
-            # calculate the matrix-by-vector product Ab
-            b_k1 = torch.mm(A, b_k)
-
-            # calculate the norm
-            b_k1_norm = torch.norm(b_k1)
-
-            # re normalize the vector
-            b_k = b_k1 / b_k1_norm
-
-        return b_k
-
-    def _vertex_decimation(self, L):
-
-        max_eigenvec = self._power_iteration(L)
-        v_plus, v_minus = (max_eigenvec >= 0).squeeze(), (max_eigenvec < 0).squeeze()
-
-        # print(v_plus, v_minus)
-
-        # diagonal matrix, swap v_minus with v_plus not to incur in errors (does not change the matrix)
-        if torch.sum(v_plus) == 0.:  # The matrix is diagonal, cannot reduce further
-            if torch.sum(v_minus) == 0.:
-                assert v_minus.shape[0] == L.shape[0], (v_minus.shape, L.shape)
-                # I assumed v_minus should have ones, but this is not necessarily the case. So I added this if
-                return torch.ones(v_minus.shape), L
-            else:
-                return v_minus, L
-
-        L_plus_plus = L[v_plus][:, v_plus]
-        L_plus_minus = L[v_plus][:, v_minus]
-        L_minus_minus = L[v_minus][:, v_minus]
-        L_minus_plus = L[v_minus][:, v_plus]
-
-        L_new = L_plus_plus - torch.mm(torch.mm(L_plus_minus, torch.inverse(L_minus_minus)), L_minus_plus)
-
-        return v_plus, L_new
 
     def _precompute_assignments(self):
         pass
@@ -438,20 +362,9 @@ class Ppi(TUDatasetManager):
             print(g.x.index_select(1, mask).shape)
         '''
 
-        # TODO COME FARLO SU PPI SE GIA' HO I DATA? (MINOR)
-        #    if self.precompute_kron_indices:
-        #    laplacians, v_plus_list = self._precompute_kron_indices(G)
-        #       G.laplacians = laplacians
-        #       G.v_plus = v_plus_list
-        #
-        #   if G.number_of_nodes() > 1 and G.number_of_edges() > 0:
-        #       data = self._to_data(G) # TODO questo c'e' già!!
-        #       dataset.append(data)
-
         torch.save(dataset, self.processed_dir / f"{self.name}.pt")
 
     def _to_data(self, G):
-        # TODO CONVERT PyG Data object to our Data object
         pass
 
 
