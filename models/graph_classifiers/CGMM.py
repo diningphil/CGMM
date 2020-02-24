@@ -154,6 +154,8 @@ class CGMM(IncrementalLayer):
             #data.x = torch.argmax(data.x, dim=1)
 
             posterior_batch, l_batch = self.layer.forward(data.x, prev_stats)
+
+
             statistics_batch = self._compute_statistics(posterior_batch, data, device)
 
             node_unigram, graph_unigram = self._compute_unigram(posterior_batch, data.batch, device)
@@ -352,9 +354,9 @@ class CGMMPPI(CGMM):
                     # TODO append input as well
                     y_test = data.y.cpu().numpy()
 
-            model = LinearModel(dim_features, self.dim_target, layer_config)
+            #model = LinearModel(dim_features, self.dim_target, layer_config)
 
-            #model = MLP(dim_features, self.dim_target, layer_config)
+            model = MLP(dim_features, self.dim_target, layer_config)
 
             net = CGMMPPIGraphClassifier(model, loss_function=self.loss_class(), device=device)
 
@@ -643,6 +645,7 @@ class CGMMLayer:
             return likelihood, posterior_estimate, posterior_uli, posterior_ui, eulaij, broadcastable_stats
 
     def E_step(self, labels, stats=None):
+
 
         with torch.no_grad():
             if self.is_layer_0:

@@ -37,7 +37,7 @@ class GraphDatasetManager:
         if outer_k is None or outer_k == 'None':
             self.outer_k = None
         else:
-            int(outer_k)
+            self.outer_k = int(outer_k)
         if inner_k is None or inner_k == 'None':    
             self.inner_k = None
         else:
