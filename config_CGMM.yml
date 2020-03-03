@@ -5,17 +5,17 @@ model:
 batch_size:
   - 10000
 l_prec:
-  - [1,3]
+  - [1]
 max_layers:
   - 4
 A:
   - 1
 C:
-  - 10
+  - 4
 node_type:
   - discrete 
 unibigram:
-  - False
+  - True
 aggregation:
   - mean  # Not used with CGMMPPI!
 infer_with_posterior:

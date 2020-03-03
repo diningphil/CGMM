@@ -1,4 +1,5 @@
 import torch
+import time
 import numpy as np
 from models.utils.CategoricalEmission import CategoricalEmission
 from models.utils.GaussianEmission import GaussianEmission
@@ -262,8 +263,6 @@ class CGMM(IncrementalLayer):
             node_embeddings_batch = posteriors
             graph_embeddings_batch = aggregate(posteriors, batch)
         else:
-            # todo may avoid one hot with this
-            # np.add.at(freq_node_unigram, node_states[curr_node_size:(curr_node_size + size)], 1)
 
             if 'cuda' in device:
                 node_embeddings_batch = self._make_one_hot(posteriors.argmax(dim=1)).cuda()
@@ -279,16 +278,41 @@ class CGMM(IncrementalLayer):
         graph_bigram_batch = torch.zeros((no_graphs, self.C * self.C), dtype=torch.float64).to(device)
 
         if self.use_continuous_states:
+
+            '''
+            # old code, useful for dissecting the algorithm
             srcs, dsts = edge_index
+
+            start_time = time.time()
+
             for dest, source in zip(dsts, srcs):
                 for i in range(self.C):
                     start, end = i * self.C, i * self.C + self.C
 
                     node_bigram_batch[dest, start:end] += posteriors[source]*posteriors[dest, i]
                     graph_bigram_batch[batch[dest], start:end] += posteriors[source]*posteriors[dest, i]
-        else:
-            posterior_batch_argmax = posteriors.argmax(dim=1)
 
+
+            end_time = time.time()
+            print(end_time - start_time)
+            '''
+
+            # Code provided by Daniele Atzeni to speed up the computation!
+            nodes_in_batch = len(batch)
+            sparse_adj_matrix = torch.sparse.FloatTensor(edge_index,
+                                                         torch.ones(edge_index.shape[1]),
+                                                         torch.Size([nodes_in_batch, nodes_in_batch]))
+            tmp1 = torch.sparse.mm(sparse_adj_matrix, posteriors.float()).repeat(1, self.C)
+            tmp2 = posteriors.view(-1, 1).repeat(1, self.C).view(-1, self.C*self.C)
+            node_bigram_batch = torch.mul(tmp1, tmp2)
+
+            graph_bigram_batch = global_add_pool(node_bigram_batch, batch)
+
+        else:
+            '''
+            # old code, useful for dissecting the algorithm
+
+            posterior_batch_argmax = posteriors.argmax(dim=1)
             srcs, dsts = edge_index
 
             for dest, source in zip(dsts, srcs):
@@ -297,7 +321,21 @@ class CGMM(IncrementalLayer):
 
                 node_bigram_batch[dest, state_u * self.C + state_neighb] += 1
                 graph_bigram_batch[batch[dest], state_u * self.C + state_neighb] += 1
-        
+            '''
+
+            # Covert into one hot
+            posteriors_one_hot = self._make_one_hot(posteriors.argmax(dim=1)).float()
+
+            # Code provided by Daniele Atzeni to speed up the computation!
+            nodes_in_batch = len(batch)
+            sparse_adj_matrix = torch.sparse.FloatTensor(edge_index,
+                                                         torch.ones(edge_index.shape[1]),
+                                                         torch.Size([nodes_in_batch, nodes_in_batch]))
+            tmp1 = torch.sparse.mm(sparse_adj_matrix, posteriors_one_hot).repeat(1, self.C)
+            tmp2 = posteriors_one_hot.view(-1, 1).repeat(1, self.C).view(-1, self.C*self.C)
+            node_bigram_batch = torch.mul(tmp1, tmp2)
+            graph_bigram_batch = global_add_pool(node_bigram_batch, batch)
+
         return node_bigram_batch.double(), graph_bigram_batch.double()
 
     def _compute_sizes(self, batch, device):
@@ -316,10 +354,13 @@ class CGMM(IncrementalLayer):
     def _make_one_hot(self, labels):
         one_hot = torch.zeros(labels.size(0), self.C)
 
-        # todo inefficient
+        '''
+        old code, useful for referencing
         for u in range(labels.size(0)):
             one_hot[u, labels[u]] += 1
+        '''
 
+        one_hot[torch.arange(labels.size(0)), labels] = 1
         return one_hot
 
 

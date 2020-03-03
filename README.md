@@ -13,9 +13,13 @@ This research software is provided as is. If you happen to use or modify this co
 [*Bacciu Davide, Errica Federico, Micheli Alessio: Contextual Graph Markov Model: A Deep and Generative Approach to Graph Processing. Proceedings of the 35th International Conference on Machine Learning. Vol. 80. pp. 294-303.*
 ](http://proceedings.mlr.press/v80/bacciu18a.html)
 
+
+### 3rd of March 2020 UPDATE
+
+Thanks to the amazing work of [Daniele Atzeni](https://github.com/daniele-atzeni) we have dramatically increased the performance of bigram computation. With ``C=4", continuous posteriors and matrix operations in place of nested for loops, we have been able to get a speedup of 900x (yes.. 900x) on NCI1 with a single core. Bravo Daniele!
+
 ### 5th of November 2019 UPDATE
 We refactored the whole repository to allow for easy experimentation with incremental architectures. New efficiency improvements are coming soon. Stay tuned!
-
 
 ### 24th of May 2019 UPDATE
 We provide an extended and refactored version of CGMM, implemented in Pytorch. There are additional experimental routines to try some common graph classification tasks. Please refer to the "Paper Version" Release tag for the original code of the paper.
