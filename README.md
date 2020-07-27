@@ -10,9 +10,14 @@ The library includes data and scripts to reproduce the tree/graph classification
 
 This research software is provided as is. If you happen to use or modify this code, please remember to cite the foundation papers:
 
-[*Bacciu Davide, Errica Federico, Micheli Alessio: Contextual Graph Markov Model: A Deep and Generative Approach to Graph Processing. Proceedings of the 35th International Conference on Machine Learning. Vol. 80. pp. 294-303.*
+[*Bacciu Davide, Errica Federico, Micheli Alessio: Contextual Graph Markov Model: A Deep and Generative Approach to Graph Processing. Proceedings of the 35th International Conference on Machine Learning, 80:294-303, 2018.*
 ](http://proceedings.mlr.press/v80/bacciu18a.html)
 
+[*Bacciu Davide, Errica Federico, Micheli Alessio: Probabilistic Learning on Graphs via Contextual Architectures. Journal of Machine Learning Research, 21(134):1−39, 2020.*
+](http://jmlr.org/papers/v21/19-470.html)
+
+### 27th of July 2020: Paper accepted at JMLR!
+Please see the reference above.
 
 ### 3rd of March 2020 UPDATE
 
@@ -39,6 +44,6 @@ In the config file, specify node_type "continuous", as the degree should be trea
 To replicate our experiments on graph classification, first modify the *config_CGMM.yml* file accordingly (use CGMM as model), then execute:
 `python Launch_Experiments.py --config-file config_CGMM.yml --inner-folds None --outer-folds 10 --inner-processes [processes to use for internal cross validation] --outer-processes [processes to use for external cross validation] --dataset [DATASET STRING]`
 
-By default, datasets are created to implement external 10-fold CV for model assessment, i.e. split between train and TEST, and an internal hold-out split of the training set (10% as VALIDATION set for model selection). If you change the data splits, you have to modify the **--inner-folds** and **--outer-folds** arguments accordingly. NOTE: a hold-out technique is associate to **--inner(outer)-folds = None**.
+By default, datasets are created to implement external 10-fold CV for model assessment, i.e. random splits between train and TEST, and an internal hold-out split of the training set (10% as VALIDATION set for model selection). If you change the number of data splits, you have to modify the **--inner-folds** and **--outer-folds** arguments accordingly. NOTE: a hold-out technique is associate to **--inner(outer)-folds = None**. Reproducibility is not hampered by different random splits in our case.
 
 For node classification on PPI, use CGMMPPI in the config file instead of CGMM (to be refactored. In this case, you have to preprocess PPI before running on multiprocessing. You can do this by appending the `--debug` argument the very first time you try to train on PPI with CGMM).
