@@ -10,11 +10,11 @@ The library includes data and scripts to reproduce the tree/graph classification
 
 This research software is provided as is. If you happen to use or modify this code, please remember to cite the foundation papers:
 
-[*Bacciu Davide, Errica Federico, Micheli Alessio: Contextual Graph Markov Model: A Deep and Generative Approach to Graph Processing. Proceedings of the 35th International Conference on Machine Learning, 80:294-303, 2018.*
-](http://proceedings.mlr.press/v80/bacciu18a.html)
-
 [*Bacciu Davide, Errica Federico, Micheli Alessio: Probabilistic Learning on Graphs via Contextual Architectures. Journal of Machine Learning Research, 21(134):1−39, 2020.*
 ](http://jmlr.org/papers/v21/19-470.html)
+
+[*Bacciu Davide, Errica Federico, Micheli Alessio: Contextual Graph Markov Model: A Deep and Generative Approach to Graph Processing. Proceedings of the 35th International Conference on Machine Learning, 80:294-303, 2018.*
+](http://proceedings.mlr.press/v80/bacciu18a.html)
 
 ### 27th of July 2020: Paper accepted at JMLR!
 Please see the reference above.
