@@ -6,7 +6,7 @@ CGMM is a generative approach to learning contexts in graphs. It combines inform
 We hope that the exploitation of the proposed framework, which can be extended in many directions, can contribute to the extensive use of both generative and discriminative approaches to the adaptive processing of structured data.
 
 ## This repo
-The library includes data and scripts to reproduce the tree/graph classification experiments reported in the paper describing the method.
+The library includes data and scripts to reproduce the tree/graph classification experiments reported in the paper describing the method (**please look at previous releases**).
 
 This research software is provided as is. If you happen to use or modify this code, please remember to cite the foundation papers:
 
@@ -29,21 +29,29 @@ We refactored the whole repository to allow for easy experimentation with increm
 ### 24th of May 2019 UPDATE
 We provide an extended and refactored version of CGMM, implemented in Pytorch. There are additional experimental routines to try some common graph classification tasks. Please refer to the "Paper Version" Release tag for the original code of the paper.
 
-### Create Data Sets
+### Usage
 
-We first need to create a data set. Let's try to parse NCI1
-`python PrepareDatasets.py DATA --dataset-name NCI1`
-In the config file, specify node_type "discrete", as features are represented as atom types
+This repo builds upon [PyDGN](https://github.com/diningphil/PyDGN), a framework to easily develop and test new DGNs.
+See how to construct your dataset and then train your model there.
 
-For social datasets such as IMDB-MULTI:
-`python PrepareDatasets.py DATA --dataset-name IMDB-BINARY --use-degree`
-In the config file, specify node_type "continuous", as the degree should be treated as a continuous value
+This repo assumes PyDGN 1.0.1 is used. Compatibility with future versions is not guaranteed.
 
-### Replicate Experiments
+The evaluation is carried out in two steps:
+- Generate the unsupervised graph embeddings
+- Apply a classifier on top
 
-To replicate our experiments on graph classification, first modify the *config_CGMM.yml* file accordingly (use CGMM as model), then execute:
-`python Launch_Experiments.py --config-file config_CGMM.yml --inner-folds None --outer-folds 10 --inner-processes [processes to use for internal cross validation] --outer-processes [processes to use for external cross validation] --dataset [DATASET STRING]`
+We designed two separate experiments to avoid recomputing the embeddings each time. First, use the `config_CGMM_Embedding.yml` config file to create the embeddings,
+specifying the folder where to store them in the parameter `embeddings_folder`. Then, use the `config_CGMM_Classifier.yml` config file to launch
+the classification experiments.
 
-By default, datasets are created to implement external 10-fold CV for model assessment, i.e. random splits between train and TEST, and an internal hold-out split of the training set (10% as VALIDATION set for model selection). If you change the number of data splits, you have to modify the **--inner-folds** and **--outer-folds** arguments accordingly. NOTE: a hold-out technique is associate to **--inner(outer)-folds = None**. Reproducibility is not hampered by different random splits in our case.
+## Launch Exp:
 
-For node classification on PPI, use CGMMPPI in the config file instead of CGMM (to be refactored. In this case, you have to preprocess PPI before running on multiprocessing. You can do this by appending the `--debug` argument the very first time you try to train on PPI with CGMM).
+#### Build dataset and data splits (follow PyDGN tutorial and use the data splits provided there for graph classification tasks)
+For instance:
+
+    pydgn-dataset --config-file examples/DATA_CONFIGS/config_PROTEINS.yml
+
+#### Train the model
+
+    pydgn-train  --config-file MODEL_CONFIGS/config_CGMM_Embedding.yml 
+    pydgn-train  --config-file MODEL_CONFIGS/config_CGMM_Classifier.yml 

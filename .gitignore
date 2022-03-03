@@ -108,10 +108,12 @@ venv.bak/
 
 # vscode
 .vscode
+.idea
 
 # PROJECT
-*DATA*/**
-Old_Baselines/**
+DATA/**
+DATA_SPLITS/**
+**__pycache__/**
 *RESULTS*/**
 
 
@@ -119,4 +121,3 @@ Old_Baselines/**
 *.xml
 models/.DS_Store
 .DS_Store
-*.png

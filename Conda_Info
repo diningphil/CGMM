@@ -1,4 +1,0 @@
-Install gcc_linux-64 and gxx_linux-64 (or similar names) with conda
-Use export CUDA_VISIBLE_DEVICES="" if Graph_Comparison_Models crashes when launched in parallel
-
-

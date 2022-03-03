@@ -1,0 +1,73 @@
+# Dataset and Splits
+data_root: DATA/
+dataset_class: pydgn.data.dataset.TUDatasetInterface
+dataset_name:  PROTEINS
+data_splits_file:  DATA_SPLITS/CHEMICAL/PROTEINS/PROTEINS_outer10_inner1.splits
+
+
+# Hardware
+device: cuda # cpu | cuda
+max_cpus: 4 # > 1 for parallelism
+max_gpus: 1 # > 0 for gpu usage (device must be cuda though)
+gpus_per_task: 1 # percentage of gpus to allocate for each task
+
+
+# Data Loading
+dataset_getter: provider.IncrementalDataProvider
+data_loader:
+  class_name:  torch_geometric.loader.DataLoader
+  args:
+    num_workers: 2
+    pin_memory: True
+
+
+# Reproducibility
+seed: 42
+
+
+# Experiment
+result_folder: RESULTS
+exp_name:  cgmm_embeddings
+experiment:  cgmm_embedding_task.EmbeddingCGMMTask
+higher_results_are_better:  True
+evaluate_every: 1
+final_training_runs: 1
+
+# Grid Search
+grid:
+  layer_config:
+    model: cgmm.CGMM
+    embeddings_folder: RESULTS/CGMM_EMBEDDINGS/
+    checkpoint: True
+    batch_size: 256
+    shuffle: False
+    previous_layers_to_use: "1"  # multiple layers: "1,2,4"
+    concatenate_on_axis: 1  # must be > 0
+    max_layers: 20
+    layers: 20
+    A: 1
+    C: 20
+    readout: probabilistic_readout.UnsupervisedProbabilisticNodeReadout
+    emission: emission.IndependentMultivariateBernoulliEmission
+    unibigram: True  # the experiment above will generate embeddings with both unigrams and unibigram representation
+    aggregation:
+      - sum
+      - mean
+    infer_with_posterior:
+      - True
+      - False
+    epochs: 10
+    engine: incremental_engine.IncrementalTrainingEngine
+    loss: loss.CGMMLoss
+    optimizer:
+      - class_name: optimizer.CGMMOptimizer
+        args:
+          optimizer_class_name: torch.optim.Adam  # not used!
+          accumulate_gradients: True  # for full batch training while using mini-batches
+    scorer:
+      - class_name: pydgn.training.callback.metric.MultiScore
+        args:
+          # used at model selection time. Should be the one on which to perform early stopping
+          main_scorer: score.CGMMCompleteLikelihoodScore
+          true_likelihood: score.CGMMTrueLikelihoodScore
+    plotter: pydgn.training.callback.plotter.Plotter
