@@ -34,7 +34,7 @@ We provide an extended and refactored version of CGMM, implemented in Pytorch. T
 This repo builds upon [PyDGN](https://github.com/diningphil/PyDGN), a framework to easily develop and test new DGNs.
 See how to construct your dataset and then train your model there.
 
-This repo assumes PyDGN 1.0.1 is used. Compatibility with future versions is not guaranteed.
+This repo assumes PyDGN 1.0.3 is used. Compatibility with future versions is not guaranteed.
 
 The evaluation is carried out in two steps:
 - Generate the unsupervised graph embeddings
