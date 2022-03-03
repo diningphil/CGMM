@@ -46,10 +46,12 @@ the classification experiments.
 
 ## Launch Exp:
 
-#### Build dataset and data splits (follow PyDGN tutorial and use the data splits provided there for graph classification tasks)
+#### Build dataset and data splits (follow PyDGN tutorial)
+You can use the data splits we provided for graph classification tasks, taken from our [ICLR 2020](https://arxiv.org/abs/1912.09893) paper on reproducibility.
+
 For instance:
 
-    pydgn-dataset --config-file examples/DATA_CONFIGS/config_PROTEINS.yml
+    pydgn-dataset --config-file DATA_CONFIGS/config_PROTEINS.yml
 
 #### Train the model
 
